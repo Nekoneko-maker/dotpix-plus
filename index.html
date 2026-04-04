@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DotPix+ — ドット絵変換ツール</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --border: #2e2e2e;
+  --border2: #3a3a3a;
+  --text: #f0f0f0;
+  --text2: #888;
+  --text3: #555;
+  --accent: #b4ff5f;
+  --accent2: #5faaff;
+  --accent3: #ff9f5f;
+  --danger: #ff5f5f;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  min-height: 100vh;
+}
+
+header {
+  padding: 18px 32px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+header h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+header h1 span { color: var(--accent3); }
+header p { font-size: 12px; color: var(--text3); }
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: calc(100vh - 59px);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.main {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* Upload */
+.upload-zone {
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: var(--surface);
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: #1e2b10; }
+.upload-zone input { display: none; }
+.upload-icon { font-size: 24px; margin-bottom: 6px; }
+.upload-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.upload-text strong { color: var(--accent); font-weight: 500; }
+
+/* Section */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.section-header {
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-family: 'Space Mono', monospace;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-header .badge {
+  background: var(--accent3);
+  color: #0f0f0f;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.section-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; }
+.tab {
+  flex: 1; padding: 6px 8px; font-size: 12px;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text2);
+  cursor: pointer; text-align: center;
+  transition: all .15s;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+.tab:hover { color: var(--text); }
+.tab.active { background: var(--accent); color: #0f0f0f; border-color: var(--accent); font-weight: 700; }
+.tab.active-blue { background: var(--accent2); color: #0f0f0f; border-color: var(--accent2); font-weight: 700; }
+.tab.active-orange { background: var(--accent3); color: #0f0f0f; border-color: var(--accent3); font-weight: 700; }
+
+/* Label row */
+.label-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; color: var(--text2); margin-bottom: 4px;
+}
+.label-row .val {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px; color: var(--accent); font-weight: 700;
+}
+
+/* Range */
+input[type=range] {
+  width: 100%; height: 4px;
+  -webkit-appearance: none; appearance: none;
+  background: var(--border2); border-radius: 2px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+  border: 2px solid var(--bg);
+}
+input[type=range].blue::-webkit-slider-thumb { background: var(--accent2); }
+input[type=range].orange::-webkit-slider-thumb { background: var(--accent3); }
+
+/* Number input */
+input[type=number] {
+  width: 100%; padding: 6px 10px;
+  border: 1px solid var(--border2); border-radius: var(--radius-sm);
+  background: var(--surface2); color: var(--text);
+  font-size: 13px; font-family: 'Space Mono', monospace;
+  outline: none;
+}
+input[type=number]:focus { border-color: var(--accent); }
+
+/* Toggle */
+.toggle-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text2); }
+.toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.toggle input { display: none; }
+.toggle-track {
+  position: absolute; inset: 0; border-radius: 10px;
+  background: var(--border2); cursor: pointer; transition: background .2s;
+}
+.toggle input:checked + .toggle-track { background: var(--accent); }
+.toggle-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text2); transition: left .2s, background .2s; pointer-events: none;
+}
+.toggle input:checked ~ .toggle-thumb { left: 19px; background: #0f0f0f; }
+
+/* Buttons */
+.btn {
+  padding: 9px 14px; border-radius: var(--radius-sm);
+  font-size: 13px; cursor: pointer; transition: all .15s;
+  font-family: 'Noto Sans JP', sans-serif; font-weight: 500;
+  border: 1px solid var(--border2); background: var(--surface2); color: var(--text);
+}
+.btn:hover { border-color: var(--text3); }
+.btn.accent { background: var(--accent); color: #0f0f0f; border-color: var(--accent); font-weight: 700; }
+.btn.accent:hover { background: #c8ff7a; }
+.btn.blue { background: var(--accent2); color: #0f0f0f; border-color: var(--accent2); font-weight: 700; }
+.btn.blue:hover { background: #7fc3ff; }
+.btn.orange { background: var(--accent3); color: #0f0f0f; border-color: var(--accent3); font-weight: 700; }
+.btn.orange:hover { background: #ffb87a; }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: #2a1010; }
+.btn:disabled { opacity: .3; cursor: default; pointer-events: none; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; text-align: center; }
+
+/* Priority */
+.priority-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.priority-header span { flex: 1; font-size: 12px; color: var(--text2); }
+.pick-btn { padding: 4px 10px; font-size: 12px; }
+.clear-btn { padding: 4px 10px; font-size: 12px; }
+.pick-hint { font-size: 11px; color: var(--text3); margin-bottom: 6px; line-height: 1.5; }
+.priority-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 22px; }
+.priority-chip {
+  display: flex; align-items: center; gap: 5px;
+  border-radius: 20px; padding: 3px 8px 3px 5px;
+  font-size: 11px; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text2);
+  font-family: 'Space Mono', monospace;
+}
+.priority-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,.1); }
+.priority-x { cursor: pointer; color: var(--text3); font-size: 14px; line-height: 1; margin-left: 2px; }
+.priority-x:hover { color: var(--danger); }
+.empty-chips { font-size: 11px; color: var(--text3); }
+.weight-row { display: flex; align-items: center; gap: 8px; }
+.weight-row label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+
+/* Canvas area */
+.canvas-view-tabs { display: flex; gap: 4px; }
+.canvas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.canvas-grid.single { grid-template-columns: 1fr; }
+.canvas-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; position: relative;
+}
+.canvas-title {
+  padding: 7px 11px; font-size: 11px;
+  font-family: 'Space Mono', monospace; color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.canvas-title.picking { color: var(--accent); }
+canvas { display: block; width: 100%; image-rendering: pixelated; }
+.canvas-empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 200px; font-size: 13px; color: var(--text3);
+}
+
+/* Palette */
+.palette-display { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px; }
+.palette-swatch {
+  width: 20px; height: 20px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.08); cursor: default;
+  transition: transform .1s;
+}
+.palette-swatch:hover { transform: scale(1.3); }
+.palette-swatch.priority { outline: 2px solid var(--accent2); outline-offset: 1px; }
+
+.hint { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+/* Pixel mode info box */
+.mode-info {
+  background: #151f0a;
+  border: 1px solid #2e4010;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+.mode-info strong { color: var(--accent); font-weight: 600; }
+.mode-info .face-badge {
+  display: inline-block;
+  background: #1e3a0a;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--accent);
+  padding: 1px 7px;
+  margin-top: 4px;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Collapsible section */
+.section-header.collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+.section-header.collapsible:hover { color: var(--text2); }
+.collapse-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text3);
+  transition: transform .2s;
+  flex-shrink: 0;
+}
+.section.collapsed .collapse-arrow { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
+.section.collapsed .section-header { border-bottom: none; }
+
+/* Inline number input for palette */
+.pal-num-inline {
+  width: 52px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--accent);
+  font-weight: 700;
+  text-align: center;
+}
+.pal-num-inline:focus { border-color: var(--accent2); outline: none; }
+.pal-num-inline:disabled { opacity: 0.3; }
+
+/* Retro color count row */
+.retro-count-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text2); margin-top: 8px;
+}
+.retro-chip-list {
+  display: flex; flex-wrap: wrap; gap: 3px; padding: 8px;
+  background: var(--surface2); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); min-height: 40px;
+}
+.retro-chip {
+  width: 18px; height: 18px; border-radius: 3px;
+  border: 1px solid rgba(255,255,255,.08);
+  transition: transform .1s;
+  cursor: default;
+}
+.retro-chip:hover { transform: scale(1.4); z-index: 1; position: relative; }
+.retro-badge {
+  display: inline-block;
+  font-size: 10px; font-family: 'Space Mono', monospace;
+  padding: 1px 7px; border-radius: 10px; font-weight: 700;
+}
+.retro-badge.fc { background: #d40000; color: #fff; }
+.retro-badge.pce { background: var(--accent2); color: #0f0f0f; }
+.retro-badge.pc98 { background: #006e6e; color: #fff; }
+
+/* ===== RETRO SECTION END ===== */
+
+/* ===== SPIN BUTTONS ===== */
+.spin-wrap { display:inline-flex; align-items:center; gap:2px; }
+.spin-btns { display:flex; flex-direction:column; gap:1px; }
+.spin-btn {
+  width:15px; height:11px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:2px;
+  cursor:pointer; font-size:7px; color:var(--text2);
+  display:flex; align-items:center; justify-content:center;
+  padding:0; line-height:1; user-select:none; flex-shrink:0;
+}
+.spin-btn:hover { background:var(--surface3); color:var(--text1); }
+.spin-btn:active { background:var(--accent); color:#000; border-color:var(--accent); }
+
+
+
+@media (max-width: 700px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  .canvas-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DotPix<span>+</span></h1>
+  <p>ドット絵変換 — ブラウザ完結・オフライン対応</p>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- Upload -->
+    <div class="upload-zone" id="dropzone" onclick="document.getElementById('imgInput').click()">
+      <input type="file" id="imgInput" accept="image/*">
+      <div class="upload-icon">🖼️</div>
+      <div class="upload-text"><strong>クリックまたはドロップ</strong><br>PNG・JPG・GIF・WebP 対応</div>
+    </div>
+
+    <!-- Dot size (collapsible) -->
+    <div class="section" id="secDotSize">
+      <div class="section-header collapsible" onclick="toggleSection('secDotSize')">
+        ドットサイズ / 解像度
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="tabs">
+          <div class="tab active" id="stDotSize" onclick="switchSpec('dotsize')">サイズ指定 (px)</div>
+          <div class="tab" id="stDotCount" onclick="switchSpec('dotcount')">ドット数指定</div>
+        </div>
+
+        <div id="paneDotSize">
+          <div class="label-row">
+            1ドットの大きさ
+            <span class="spin-wrap">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="dotNumInline" value="8" onchange="syncDotSize(this.value)">
+              <span class="spin-btns">
+                <button class="spin-btn" onclick="spin('dotNumInline',1,syncDotSize)">▲</button>
+                <button class="spin-btn" onclick="spin('dotNumInline',-1,syncDotSize)">▼</button>
+              </span>
+            </span>
+          </div>
+          <input type="range" id="dotSlider" min="2" max="256" value="8" step="1" oninput="syncDotSize(this.value)">
+          <div class="hint" style="margin-top:6px">大きいほど荒くなる。8px→細かい / 64px→粗い</div>
+        </div>
+
+        <div id="paneDotCount" style="display:none">
+          <div class="label-row">
+            横のドット数
+            <span class="spin-wrap">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="dotCountNumInline" value="64" onchange="syncDotCount(this.value)">
+              <span class="spin-btns">
+                <button class="spin-btn" onclick="spin('dotCountNumInline',1,syncDotCount)">▲</button>
+                <button class="spin-btn" onclick="spin('dotCountNumInline',-1,syncDotCount)">▼</button>
+              </span>
+            </span>
+          </div>
+          <input type="range" id="dotCountSlider" min="4" max="512" value="64" step="1" oninput="syncDotCount(this.value)">
+          <div class="hint" style="margin-top:6px">多いほど細かくなる。16→超粗い / 512→細かい</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pixel Mode (collapsible) -->
+    <div class="section" id="secPixelMode">
+      <div class="section-header collapsible" onclick="toggleSection('secPixelMode')">
+        ピクセル化モード
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="tabs">
+          <div class="tab active" id="pmTabA" onclick="switchPixelMode('A')">A：クラシック</div>
+          <div class="tab" id="pmTabB" onclick="switchPixelMode('B')">B：スマート補完</div>
+        </div>
+
+        <div id="pmPaneA">
+          <div class="hint">シンプルなダウンサンプリング。高速でクリーンな仕上がり。</div>
+        </div>
+
+        <div id="pmPaneB" style="display:none">
+          <div class="mode-info">
+            Sobelエッジ検出で輪郭ピクセルを優先配置。<br>
+            シャープで細部が潰れにくい仕上がりに。<br>
+            <span class="face-badge">👤 顔・人物・イラストに特に効果的</span><br>
+            <span style="font-size:11px;color:var(--text3)">設定した数値はレトロパレットモードにも適用されます。</span>
+          </div>
+          <div style="margin-top:8px">
+            <div class="label-row">エッジ強度 <span class="val" id="edgeStrVal">60%</span></div>
+            <input type="range" id="edgeStrSlider" min="0" max="100" value="60" step="5"
+              oninput="document.getElementById('edgeStrVal').textContent=this.value+'%'">
+            <div class="hint" style="margin-top:4px">高いほど輪郭線がシャープ</div>
+          </div>
+          <div style="margin-top:10px">
+            <div class="label-row" style="margin-bottom:6px">ディザリング</div>
+            <div class="tabs">
+              <div class="tab active-blue" id="ditherNone" onclick="switchDither('none')">なし</div>
+              <div class="tab" id="ditherOrdered" onclick="switchDither('ordered')">Ordered</div>
+              <div class="tab" id="ditherFS" onclick="switchDither('fs')">Floyd-S</div>
+            </div>
+            <div class="hint" style="margin-top:6px" id="ditherHint">ディザリングなし。パレット色に直接スナップ。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color (collapsible) -->
+    <div class="section" id="secColor">
+      <div class="section-header collapsible" onclick="toggleSection('secColor')">
+        カラー設定
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div id="retroModeActiveNote" style="display:none;font-size:11px;color:var(--text3);background:var(--surface2);border-radius:var(--radius-sm);padding:6px 10px;line-height:1.5">レトロモード中 — このカラー数は使用されません。<br>使用色数はレトロパレットモードで設定してください。</div>
+        <div>
+          <div class="label-row">
+            カラー数
+            <span class="spin-wrap">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="palNumInline" value="16" onchange="syncPal(this.value)">
+              <span class="spin-btns">
+                <button class="spin-btn" onclick="spin('palNumInline',1,syncPal)">▲</button>
+                <button class="spin-btn" onclick="spin('palNumInline',-1,syncPal)">▼</button>
+              </span>
+            </span>
+          </div>
+          <input type="range" class="blue" id="palSlider" min="2" max="256" value="16" step="1"
+            oninput="syncPal(this.value)">
+        </div>
+        <div class="toggle-row">
+          <label class="toggle"><input type="checkbox" id="grayToggle"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          グレースケール変換
+        </div>
+      </div>
+    </div>
+
+    <!-- Priority (collapsible) -->
+    <div class="section" id="secPriority">
+      <div class="section-header collapsible" onclick="toggleSection('secPriority')">
+        優先カラー
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="priority-header">
+          <span>クリックで色を拾う</span>
+          <button class="btn pick-btn" id="eyedropBtn" onclick="togglePick()">スポイト</button>
+          <button class="btn danger clear-btn" id="clearBtn" onclick="clearAll()" disabled>解除</button>
+        </div>
+        <div class="pick-hint" id="pickHint">スポイトを有効にして原画をクリックすると色を登録できる。</div>
+        <div class="priority-list" id="priorityList">
+          <span class="empty-chips">優先色なし</span>
+        </div>
+        <div class="weight-row" style="margin-top:6px">
+          <label>優先度</label>
+          <input type="range" id="weightSlider" min="1" max="10" value="4" step="1" style="flex:1"
+            oninput="document.getElementById('weightVal').textContent=this.value">
+          <span id="weightVal" style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent);font-weight:700;min-width:14px">4</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions (PNG) -->
+    <div class="btn-row">
+      <button class="btn accent" onclick="process()">ドット化する</button>
+      <button class="btn blue" id="dlBtn" onclick="download()" disabled>PNG保存</button>
+      <button class="btn" id="dlDotBtn" onclick="downloadDot()" disabled title="1ドット=1ピクセルで保存">等倍保存</button>
+    </div>
+
+    <!-- Retro Mode (collapsible) -->
+    <div class="section" id="secRetro">
+      <div class="section-header collapsible" onclick="toggleSection('secRetro')">
+        レトロパレットモード <span class="badge" style="margin-left:4px">NEW</span>
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="hint">実機のカラーパレットから色を取得してドット化します。</div>
+
+        <div class="tabs" style="flex-wrap:wrap;gap:4px">
+          <div class="tab active" id="retroTabOff" onclick="switchRetroMode('off')">OFF</div>
+          <div class="tab" id="retroTabFC" onclick="switchRetroMode('fc')">FC</div>
+          <div class="tab" id="retroTabPCE" onclick="switchRetroMode('pce')">PCE</div>
+          <div class="tab" id="retroTabPC98" onclick="switchRetroMode('pc98')">PC-98</div>
+        </div>
+
+        <!-- Shared controls: brightness bias (FC/PCE active) -->
+        <div id="retroSharedControls" style="display:none;margin-top:10px">
+          <div class="retro-count-row">
+            <span>明るさ</span>
+            <input type="range" class="orange" id="retroBrightSlider" min="-100" max="100" value="0" step="1" style="flex:1" oninput="syncRetroBright(this.value)">
+            <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent3);min-width:36px;text-align:right" id="retroBrightVal">0</span>
+          </div>
+          <div class="hint" style="margin-top:4px" id="retroBrightHint">標準。パレット全体から均等にサンプリング。</div>
+        </div>
+
+        <!-- OFF -->
+        <div id="retroInfoOff">
+          <div class="hint">通常の色量子化を使用します。カラー設定の「カラー数」が有効です。</div>
+        </div>
+
+        <!-- FC -->
+        <div id="retroInfoFC" style="display:none">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <span class="retro-badge fc">FC</span>
+            <span style="font-size:11px;color:var(--text2)">ファミコン — 54色パレット</span>
+          </div>
+          <div class="hint" style="margin-bottom:6px">2C02 NTSC基準の54色。使用色数を絞り込めます。</div>
+          <div class="retro-count-row">
+            <span>使用色数</span>
+            <input type="range" class="orange" id="retroCountFC" min="2" max="54" value="12" step="1" style="flex:1" oninput="syncRetroCount('FC', this.value)">
+            <span class="spin-wrap">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="retroCountFCNum" value="12" onchange="syncRetroCount('FC', this.value)">
+              <span class="spin-btns">
+                <button class="spin-btn" onclick="spinRetro('FC','retroCountFCNum',1)">▲</button>
+                <button class="spin-btn" onclick="spinRetro('FC','retroCountFCNum',-1)">▼</button>
+              </span>
+            </span>
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--accent3);font-family:'Space Mono',monospace;margin-top:3px" id="retroCountFCDisp">12 / 54色</div>
+        </div>
+
+        <!-- PCE -->
+        <div id="retroInfoPCE" style="display:none">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <span class="retro-badge pce">PCE</span>
+            <span style="font-size:11px;color:var(--text2)">PCエンジン — 512色</span>
+          </div>
+          <div class="hint" style="margin-bottom:6px">RGB各3bit均等分割（各レベル = n÷7×255）の512色。</div>
+          <div class="retro-count-row">
+            <span>使用色数</span>
+            <input type="range" class="orange" id="retroCountPCE" min="2" max="256" value="16" step="1" style="flex:1" oninput="syncRetroCount('PCE', this.value)">
+            <span class="spin-wrap">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="retroCountPCENum" value="16" onchange="syncRetroCount('PCE', this.value)">
+              <span class="spin-btns">
+                <button class="spin-btn" onclick="spinRetro('PCE','retroCountPCENum',1)">▲</button>
+                <button class="spin-btn" onclick="spinRetro('PCE','retroCountPCENum',-1)">▼</button>
+              </span>
+            </span>
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--accent3);font-family:'Space Mono',monospace;margin-top:3px" id="retroCountPCEDisp">16 / 512色</div>
+        </div>
+
+        <!-- PC-98 -->
+        <div id="retroInfoPC98" style="display:none">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <span class="retro-badge pc98">PC-98</span>
+            <span style="font-size:11px;color:var(--text2)">PC-9800 — 4096色</span>
+          </div>
+          <div class="hint" style="margin-bottom:6px">RGB各4bit均等分割（各レベル = n÷15×255）の4096色。最大256色まで選択可能。</div>
+          <div class="retro-count-row">
+            <span>使用色数</span>
+            <input type="range" class="orange" id="retroCountPC98" min="2" max="256" value="16" step="1" style="flex:1" oninput="syncRetroCount('PC98', this.value)">
+            <span class="spin-wrap">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="retroCountPC98Num" value="16" onchange="syncRetroCount('PC98', this.value)">
+              <span class="spin-btns">
+                <button class="spin-btn" onclick="spinRetro('PC98','retroCountPC98Num',1)">▲</button>
+                <button class="spin-btn" onclick="spinRetro('PC98','retroCountPC98Num',-1)">▼</button>
+              </span>
+            </span>
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--accent3);font-family:'Space Mono',monospace;margin-top:3px" id="retroCountPC98Disp">16 / 4096色</div>
+        </div>
+
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <!-- View tabs -->
+    <div class="tabs canvas-view-tabs">
+      <button class="tab active" id="btnBoth" onclick="setView('both')">比較</button>
+      <button class="tab" id="btnOrig" onclick="setView('orig')">原画</button>
+      <button class="tab" id="btnDot" onclick="setView('dot')">ドット絵</button>
+    </div>
+
+    <div class="canvas-grid" id="canvasRow">
+      <div class="canvas-wrap" style="grid-column:1/-1">
+        <div class="canvas-empty">画像を読み込んでドット化しよう</div>
+      </div>
+    </div>
+
+    <!-- Palette -->
+    <div class="section" id="paletteSection" style="display:none">
+      <div class="section-header">使用カラーパレット <span style="color:var(--accent2);margin-left:6px">青枠 = 優先色に近い</span></div>
+      <div class="palette-display" id="paletteDisplay"></div>
+    </div>
+
+
+  </main>
+</div>
+
+<script>
+// ===== VARS =====
+let origImg=null, dotCanvas=null, viewMode='both', specMode='dotsize', picking=false, priorityColors=[];
+let pixelMode='A', ditherMode='none';
+let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98'
+// レトロ色数は DOM ではなくこの変数を正とする
+const retroCountVal={fc:12,pce:16,pc98:16};
+let retroDebounce=null;
+let retroBrightBias=0; // -1 (暗い) ~ 0 (標準) ~ 1 (明るい)
+
+// ===== UPLOAD =====
+const dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.type.startsWith('image/'))loadFile(f);
+});
+document.getElementById('imgInput').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0])});
+
+function loadFile(f){
+  const r=new FileReader();
+  r.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      origImg=img;
+      dotCanvas=null;
+      document.getElementById('dlBtn').disabled=true;
+      document.getElementById('paletteSection').style.display='none';
+      renderRow();
+    };
+    img.src=ev.target.result;
+  };
+  r.readAsDataURL(f);
+}
+
+// ===== COLLAPSIBLE SECTIONS =====
+function toggleSection(id){
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ===== SPEC SWITCH =====
+function switchSpec(m){
+  specMode=m;
+  document.getElementById('stDotSize').className='tab'+(m==='dotsize'?' active':'');
+  document.getElementById('stDotCount').className='tab'+(m==='dotcount'?' active':'');
+  document.getElementById('paneDotSize').style.display=m==='dotsize'?'':'none';
+  document.getElementById('paneDotCount').style.display=m==='dotcount'?'':'none';
+}
+
+function syncDotSize(v){
+  v=Math.max(2,Math.min(256,parseInt(v)||2));
+  document.getElementById('dotSlider').value=v;
+  document.getElementById('dotNumInline').value=v;
+}
+function syncDotCount(v){
+  v=Math.max(4,Math.min(512,parseInt(v)||4));
+  document.getElementById('dotCountSlider').value=v;
+  document.getElementById('dotCountNumInline').value=v;
+}
+function syncPal(v){
+  v=Math.max(2,Math.min(256,parseInt(v)||2));
+  document.getElementById('palSlider').value=v;
+  document.getElementById('palNumInline').value=v;
+}
+function syncRetroCount(mode,v){
+  const maxMap={FC:54,PCE:512,PC98:4096};
+  const mx=maxMap[mode]||256;
+  v=Math.max(2,Math.min(mx,parseInt(v)||2));
+  // JS変数に保存 (process()はここを読む)
+  retroCountVal[mode.toLowerCase()]=v;
+  // UIを同期
+  const slider=document.getElementById('retroCount'+mode);
+  const num=document.getElementById('retroCount'+mode+'Num');
+  if(slider)slider.value=Math.min(v,parseInt(slider.max));
+  if(num)num.value=v;
+  // カウント表示を更新 (例: "20 / 54色")
+  const disp=document.getElementById('retroCount'+mode+'Disp');
+  if(disp)disp.textContent=v+' / '+mx+'色';
+  // 画像処理済みなら自動で再ドット化 (300ms debounce)
+  if(dotCanvas){
+    clearTimeout(retroDebounce);
+    retroDebounce=setTimeout(process,300);
+  }
+}
+
+function syncRetroBright(v){
+  v=Math.max(-100,Math.min(100,parseInt(v)||0));
+  retroBrightBias=v/100;
+  document.getElementById('retroBrightSlider').value=v;
+  document.getElementById('retroBrightVal').textContent=(v>0?'+':'')+v;
+  const hint=v>10?'明るい色を優先してサンプリング。ランダム性あり。':
+             v<-10?'暗い色を優先してサンプリング。ランダム性あり。':
+             '標準。パレット全体から均等にサンプリング。';
+  document.getElementById('retroBrightHint').textContent=hint;
+  if(dotCanvas){clearTimeout(retroDebounce);retroDebounce=setTimeout(process,300);}
+}
+
+// ===== SPIN HELPERS =====
+function spin(id,delta,fn){fn((parseInt(document.getElementById(id).value)||0)+delta);}
+function spinRetro(mode,id,delta){syncRetroCount(mode,(parseInt(document.getElementById(id).value)||0)+delta);}
+
+// ===== PICK =====
+function togglePick(){
+  if(!origImg){alert('先に画像を読み込んでください！');return}
+  picking=!picking;
+  const btn=document.getElementById('eyedropBtn');
+  const hint=document.getElementById('pickHint');
+  if(picking){
+    btn.textContent='終了';btn.className='btn accent pick-btn';
+    hint.textContent='原画をクリックして優先色を拾う。もう一度ボタンを押すと終了。';
+  } else {
+    btn.textContent='スポイト';btn.className='btn pick-btn';
+    hint.textContent='スポイトを有効にして原画をクリックすると色を登録できる。複数登録可能。';
+  }
+  renderRow();
+}
+
+function clearAll(){
+  priorityColors=[];
+  if(picking){
+    picking=false;
+    document.getElementById('eyedropBtn').textContent='スポイト';
+    document.getElementById('eyedropBtn').className='btn pick-btn';
+    document.getElementById('pickHint').textContent='スポイトを有効にして原画をクリックすると色を登録できる。複数登録可能。';
+  }
+  renderPriorityList();renderRow();
+}
+
+function pickColor(e){
+  if(!picking||!origImg)return;
+  const c=e.target;const rect=c.getBoundingClientRect();
+  const sx=(e.clientX-rect.left)/rect.width*origImg.width;
+  const sy=(e.clientY-rect.top)/rect.height*origImg.height;
+  const tmp=document.createElement('canvas');tmp.width=origImg.width;tmp.height=origImg.height;
+  tmp.getContext('2d').drawImage(origImg,0,0);
+  const px=tmp.getContext('2d').getImageData(Math.floor(sx),Math.floor(sy),1,1).data;
+  priorityColors.push([px[0],px[1],px[2]]);
+  renderPriorityList();
+}
+
+function renderPriorityList(){
+  const list=document.getElementById('priorityList');
+  document.getElementById('clearBtn').disabled=priorityColors.length===0;
+  if(!priorityColors.length){list.innerHTML='<span class="empty-chips">優先色なし</span>';return;}
+  list.innerHTML='';
+  priorityColors.forEach((c,i)=>{
+    const chip=document.createElement('div');chip.className='priority-chip';
+    const dot=document.createElement('div');dot.className='priority-dot';dot.style.background=`rgb(${c[0]},${c[1]},${c[2]})`;
+    const label=document.createElement('span');label.textContent='#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');
+    const x=document.createElement('span');x.className='priority-x';x.textContent='×';
+    x.onclick=()=>{priorityColors.splice(i,1);renderPriorityList()};
+    chip.appendChild(dot);chip.appendChild(label);chip.appendChild(x);list.appendChild(chip);
+  });
+}
+
+// ===== VIEW =====
+function setView(v){
+  viewMode=v;
+  ['both','orig','dot'].forEach(id=>{
+    const btn=document.getElementById('btn'+id.charAt(0).toUpperCase()+id.slice(1));
+    if(btn)btn.className='tab'+(viewMode===id?' active':'');
+  });
+  renderRow();
+}
+
+function renderRow(){
+  const row=document.getElementById('canvasRow');
+  row.innerHTML='';
+  row.className='canvas-grid'+(viewMode!=='both'?' single':'');
+
+  if(!origImg){
+    row.innerHTML='<div class="canvas-wrap" style="grid-column:1/-1"><div class="canvas-empty">画像を読み込んでドット化しよう</div></div>';
+    return;
+  }
+
+  if(viewMode==='both'||viewMode==='orig'){
+    const wrap=document.createElement('div');wrap.className='canvas-wrap';
+    const title=document.createElement('div');
+    title.className='canvas-title'+(picking?' picking':'');
+    title.textContent=picking?'► クリックして色を拾う':'ORIGINAL';
+    wrap.appendChild(title);
+    const sizeLabel=document.createElement('div');
+    sizeLabel.style.cssText='font-size:10px;color:var(--text3);font-family:"Space Mono",monospace;text-align:right;margin-bottom:2px';
+    sizeLabel.textContent=origImg.width+'×'+origImg.height;
+    wrap.appendChild(sizeLabel);
+    const c=document.createElement('canvas');c.width=origImg.width;c.height=origImg.height;
+    c.getContext('2d').drawImage(origImg,0,0);
+    c.style.cursor=picking?'crosshair':'default';
+    if(picking)c.onclick=pickColor;
+    wrap.appendChild(c);row.appendChild(wrap);
+  }
+
+  if(dotCanvas&&(viewMode==='both'||viewMode==='dot')){
+    const [sw,sh]=getSmallSize();
+    const wrap=document.createElement('div');wrap.className='canvas-wrap';
+    const title=document.createElement('div');title.className='canvas-title';
+    title.textContent='DOT ART';
+    wrap.appendChild(title);
+    const sizeLabel=document.createElement('div');
+    sizeLabel.style.cssText='font-size:10px;color:var(--text3);font-family:"Space Mono",monospace;text-align:right;margin-bottom:2px';
+    sizeLabel.textContent=dotCanvas.width+'×'+dotCanvas.height+' ('+sw+'×'+sh+' dots)';
+    wrap.appendChild(sizeLabel);
+    const c2=document.createElement('canvas');c2.width=dotCanvas.width;c2.height=dotCanvas.height;
+    c2.getContext('2d').drawImage(dotCanvas,0,0);
+    wrap.appendChild(c2);
+    row.appendChild(wrap);
+  } else if(viewMode==='dot'&&!dotCanvas){
+    const wrap=document.createElement('div');wrap.className='canvas-wrap';
+    wrap.innerHTML='<div class="canvas-empty">先にドット化してください</div>';
+    row.appendChild(wrap);
+  }
+}
+
+// ===== CORE PROCESSING =====
+function getSmallSize(){
+  if(!origImg)return[64,64];
+  if(specMode==='dotsize'){
+    const dot=Math.max(2,parseInt(document.getElementById('dotNumInline').value)||8);
+    return[Math.max(1,Math.ceil(origImg.width/dot)),Math.max(1,Math.ceil(origImg.height/dot))];
+  } else {
+    const dots=Math.max(4,parseInt(document.getElementById('dotCountNumInline').value)||64);
+    return[dots,Math.max(1,Math.round(dots*(origImg.height/origImg.width)))];
+  }
+}
+
+function colorDist(a,b){return(a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2}
+
+function process(){
+  if(!origImg){alert('画像を読み込んでください！');return}
+  const [sw,sh]=getSmallSize();
+  const gray=document.getElementById('grayToggle').checked;
+  const palN=Math.max(2,parseInt(document.getElementById('palNumInline').value)||16);
+  const weight=parseInt(document.getElementById('weightSlider').value)||4;
+
+  const small=document.createElement('canvas');small.width=sw;small.height=sh;
+  const ctx=small.getContext('2d');ctx.drawImage(origImg,0,0,sw,sh);
+  let data=ctx.getImageData(0,0,sw,sh);
+
+  if(gray){
+    for(let i=0;i<data.data.length;i+=4){
+      const g=Math.round(data.data[i]*.299+data.data[i+1]*.587+data.data[i+2]*.114);
+      data.data[i]=data.data[i+1]=data.data[i+2]=g;
+    }
+    ctx.putImageData(data,0,0);data=ctx.getImageData(0,0,sw,sh);
+  }
+
+  // Choose palette
+  let palette;
+  if(retroMode==='off'){
+    palette=quantizeWithPriority(data,palN,priorityColors,weight);
+  } else {
+    const fullPal=getRetroPalette();
+    const n=Math.max(2,retroCountVal[retroMode]||32);
+    palette=reduceRetroKMeans(data,fullPal,n,retroBrightBias);
+  }
+
+  if(pixelMode==='A'){
+    mapToPalette(data,palette);
+    ctx.putImageData(data,0,0);
+  } else {
+    const edgeStr=parseInt(document.getElementById('edgeStrSlider').value)/100;
+    processSmartMode(ctx,data,sw,sh,palette,edgeStr,ditherMode);
+  }
+
+  const out=document.createElement('canvas');out.width=origImg.width;out.height=origImg.height;
+  const octx=out.getContext('2d');octx.imageSmoothingEnabled=false;
+  octx.drawImage(small,0,0,out.width,out.height);
+  dotCanvas=out;
+  showPaletteUI(palette);
+  renderRow();
+  document.getElementById('dlBtn').disabled=false;
+  document.getElementById('dlDotBtn').disabled=false;
+}
+
+function quantizeWithPriority(data,n,pColors,weight){
+  const pixels=[];
+  for(let i=0;i<data.data.length;i+=4)pixels.push([data.data[i],data.data[i+1],data.data[i+2]]);
+  if(!pixels.length)return[[0,0,0]];
+  let weighted=[...pixels];
+  if(pColors.length>0){
+    const thr=60*60*3;
+    pixels.forEach(p=>{
+      if(pColors.some(pc=>colorDist(p,pc)<thr)){
+        for(let w=1;w<weight;w++)weighted.push(p);
+      }
+    });
+  }
+  const seen=new Set();let clusters=[];
+  pColors.forEach(pc=>{
+    if(clusters.length<n){const k=pc.join(',');if(!seen.has(k)){seen.add(k);clusters.push([...pc]);}}
+  });
+  // ユニーク色プールをシャッフルして順に取る → 無限ループ完全回避
+  const pool=[...new Set(weighted.map(p=>p.join(',')))].sort(()=>Math.random()-.5);
+  for(const key of pool){
+    if(clusters.length>=n)break;
+    if(!seen.has(key)){seen.add(key);clusters.push(key.split(',').map(Number));}
+  }
+  for(let iter=0;iter<12;iter++){
+    const sums=clusters.map(()=>[0,0,0,0]);
+    weighted.forEach(p=>{
+      let bi=0,bd=Infinity;
+      clusters.forEach((c,i)=>{const d=colorDist(p,c);if(d<bd){bd=d;bi=i}});
+      sums[bi][0]+=p[0];sums[bi][1]+=p[1];sums[bi][2]+=p[2];sums[bi][3]++;
+    });
+    clusters=sums.map((s,i)=>s[3]>0?[Math.round(s[0]/s[3]),Math.round(s[1]/s[3]),Math.round(s[2]/s[3])]:clusters[i]);
+  }
+  return clusters;
+}
+
+function mapToPalette(data,palette){
+  for(let i=0;i<data.data.length;i+=4){
+    let bi=0,bd=Infinity;
+    palette.forEach((c,j)=>{
+      const d=colorDist([data.data[i],data.data[i+1],data.data[i+2]],c);
+      if(d<bd){bd=d;bi=j}
+    });
+    data.data[i]=palette[bi][0];data.data[i+1]=palette[bi][1];data.data[i+2]=palette[bi][2];
+  }
+}
+
+function showPaletteUI(palette){
+  document.getElementById('paletteSection').style.display='';
+  const disp=document.getElementById('paletteDisplay');disp.innerHTML='';
+  palette.forEach(c=>{
+    const s=document.createElement('div');s.className='palette-swatch';
+    s.style.background=`rgb(${c[0]},${c[1]},${c[2]})`;
+    s.title='#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');
+    if(priorityColors.some(pc=>colorDist(c,pc)<80*80*3))s.classList.add('priority');
+    disp.appendChild(s);
+  });
+}
+
+function download(){
+  if(!dotCanvas)return;
+  const a=document.createElement('a');a.download='dotpix.png';a.href=dotCanvas.toDataURL('image/png');a.click();
+}
+function downloadDot(){
+  if(!dotCanvas)return;
+  const [sw,sh]=getSmallSize();
+  const tmp=document.createElement('canvas');tmp.width=sw;tmp.height=sh;
+  tmp.getContext('2d').drawImage(dotCanvas,0,0,sw,sh);
+  const a=document.createElement('a');a.download='dotpix_dot.png';a.href=tmp.toDataURL('image/png');a.click();
+}
+
+// ===== PIXEL MODE SWITCH =====
+function switchPixelMode(m){
+  pixelMode=m;
+  document.getElementById('pmTabA').className='tab'+(m==='A'?' active':'');
+  document.getElementById('pmTabB').className='tab'+(m==='B'?' active':'');
+  document.getElementById('pmPaneA').style.display=m==='A'?'':'none';
+  document.getElementById('pmPaneB').style.display=m==='B'?'':'none';
+}
+
+const DITHER_HINTS={
+  none:'ディザリングなし。パレット色に直接スナップ。',
+  ordered:'Bayerマトリクスによる規則的なディザリング。ドット絵らしさを保つ。',
+  fs:'Floyd-Steinbergによる誤差拡散。グラデーションが滑らか。'
+};
+function switchDither(m){
+  ditherMode=m;
+  ['None','Ordered','FS'].forEach(n=>{
+    document.getElementById('dither'+n).className='tab'+(ditherMode===n.toLowerCase()?' active-blue':'');
+  });
+  document.getElementById('ditherHint').textContent=DITHER_HINTS[m];
+}
+
+// ===== SMART MODE PROCESSING =====
+function sobelMagnitude(d,w,h){
+  // Compute per-pixel Sobel edge magnitude, returns Float32Array normalized 0..1
+  const gray=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++) gray[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
+  const mag=new Float32Array(w*h);
+  for(let y=1;y<h-1;y++){
+    for(let x=1;x<w-1;x++){
+      const gx= -gray[(y-1)*w+(x-1)] + gray[(y-1)*w+(x+1)]
+               -2*gray[y*w+(x-1)]   + 2*gray[y*w+(x+1)]
+               -gray[(y+1)*w+(x-1)] + gray[(y+1)*w+(x+1)];
+      const gy= -gray[(y-1)*w+(x-1)] - 2*gray[(y-1)*w+x] - gray[(y-1)*w+(x+1)]
+               + gray[(y+1)*w+(x-1)] + 2*gray[(y+1)*w+x] + gray[(y+1)*w+(x+1)];
+      mag[y*w+x]=Math.sqrt(gx*gx+gy*gy);
+    }
+  }
+  let maxM=0;
+  for(let i=0;i<mag.length;i++) if(mag[i]>maxM) maxM=mag[i];
+  if(maxM>0) for(let i=0;i<mag.length;i++) mag[i]/=maxM;
+  return mag;
+}
+
+// Nearest-neighbor downsample from origImg to sw x sh
+function nnSample(sw,sh){
+  const c=document.createElement('canvas');c.width=sw;c.height=sh;
+  const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(origImg,0,0,sw,sh);
+  return ctx.getImageData(0,0,sw,sh).data;
+}
+
+function processSmartMode(ctx,data,sw,sh,palette,edgeStr,dither){
+  const mag=sobelMagnitude(data.data,sw,sh);
+  // NN sample for sharp edge colors
+  const nnData=nnSample(sw,sh);
+  const d=data.data;
+
+  // Edge-aware blend: mix bilinear (smooth) + NN (sharp) by edge strength
+  for(let i=0;i<sw*sh;i++){
+    const e=Math.min(1,mag[i]*edgeStr*2.5); // boost + clamp
+    const p=i*4;
+    d[p  ]=Math.round(d[p  ]*(1-e)+nnData[p  ]*e);
+    d[p+1]=Math.round(d[p+1]*(1-e)+nnData[p+1]*e);
+    d[p+2]=Math.round(d[p+2]*(1-e)+nnData[p+2]*e);
+  }
+
+  if(dither==='none'){
+    mapToPalette(data,palette);
+  } else if(dither==='ordered'){
+    applyOrderedDither(data,sw,sh,palette);
+  } else {
+    applyFloydSteinberg(data,sw,sh,palette);
+  }
+  ctx.putImageData(data,0,0);
+}
+
+// Bayer 4×4 ordered dithering
+const BAYER4=[
+  [ 0, 8, 2,10],
+  [12, 4,14, 6],
+  [ 3,11, 1, 9],
+  [15, 7,13, 5]
+];
+function applyOrderedDither(data,w,h,palette){
+  const d=data.data;
+  const spread=24; // color jitter range
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const t=(BAYER4[y%4][x%4]/16-0.5)*spread;
+      const i=(y*w+x)*4;
+      const r=Math.max(0,Math.min(255,d[i  ]+t));
+      const g=Math.max(0,Math.min(255,d[i+1]+t));
+      const b=Math.max(0,Math.min(255,d[i+2]+t));
+      let bi=0,bd=Infinity;
+      palette.forEach((c,j)=>{const dist=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;if(dist<bd){bd=dist;bi=j}});
+      d[i]=palette[bi][0];d[i+1]=palette[bi][1];d[i+2]=palette[bi][2];
+    }
+  }
+}
+
+// Floyd-Steinberg error-diffusion dithering
+function applyFloydSteinberg(data,w,h,palette){
+  // Work on float buffer to accumulate error
+  const buf=new Float32Array(w*h*3);
+  const d=data.data;
+  for(let i=0;i<w*h;i++){buf[i*3]=d[i*4];buf[i*3+1]=d[i*4+1];buf[i*3+2]=d[i*4+2];}
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i=(y*w+x)*3;
+      const or=Math.max(0,Math.min(255,buf[i]));
+      const og=Math.max(0,Math.min(255,buf[i+1]));
+      const ob=Math.max(0,Math.min(255,buf[i+2]));
+      let bi=0,bd=Infinity;
+      palette.forEach((c,j)=>{const dist=(or-c[0])**2+(og-c[1])**2+(ob-c[2])**2;if(dist<bd){bd=dist;bi=j}});
+      const nr=palette[bi][0],ng=palette[bi][1],nb=palette[bi][2];
+      const er=or-nr,eg=og-ng,eb=ob-nb;
+      // Distribute error
+      const spread=(dx,dy,f)=>{
+        const nx=x+dx,ny=y+dy;
+        if(nx<0||nx>=w||ny<0||ny>=h)return;
+        const j=(ny*w+nx)*3;
+        buf[j]+=er*f;buf[j+1]+=eg*f;buf[j+2]+=eb*f;
+      };
+      spread( 1, 0, 7/16);
+      spread(-1, 1, 3/16);
+      spread( 0, 1, 5/16);
+      spread( 1, 1, 1/16);
+      const pi=(y*w+x)*4;
+      d[pi]=nr;d[pi+1]=ng;d[pi+2]=nb;
+    }
+  }
+}
+
+// ===== RETRO MODE =====
+
+// Famicom 54-color palette — 2C02 NTSC standard
+const FC_PALETTE=[
+  [84,84,84],[0,30,116],[8,16,144],[48,0,136],[68,0,100],[92,0,48],[84,4,0],[60,24,0],
+  [32,42,0],[8,58,0],[0,64,0],[0,60,0],[0,50,60],[0,0,0],
+  [152,150,152],[8,76,196],[48,50,236],[92,30,228],[136,20,176],[160,20,100],[152,34,32],[120,60,0],
+  [84,90,0],[40,114,0],[8,124,0],[0,118,40],[0,102,120],[44,44,44],
+  [236,238,236],[76,154,236],[120,124,236],[176,98,236],[228,84,236],[236,88,180],[236,106,100],[212,136,32],
+  [160,170,0],[116,196,0],[76,208,32],[56,204,108],[56,180,204],[60,60,60],
+  [236,238,236],[168,204,236],[188,188,236],[212,178,236],[236,174,236],[236,174,212],[236,180,176],[228,196,144],
+  [204,210,120],[180,222,120],[168,226,144],[152,226,180],[160,214,228],[160,162,160]
+];
+
+// PCE — RGB各3bit, 均等分割 (0,36,73,109,146,182,219,255)
+const PCE_PALETTE=(()=>{
+  const p=[];
+  for(let r=0;r<8;r++)for(let g=0;g<8;g++)for(let b=0;b<8;b++)
+    p.push([Math.round(r/7*255),Math.round(g/7*255),Math.round(b/7*255)]);
+  return p;
+})();
+
+// PC-98 — RGB各4bit均等分割 (0〜15 → 各 n/15×255)
+const PC98_PALETTE=(()=>{
+  const p=[];
+  for(let r=0;r<16;r++)for(let g=0;g<16;g++)for(let b=0;b<16;b++)
+    p.push([Math.round(r/15*255),Math.round(g/15*255),Math.round(b/15*255)]);
+  return p;
+})();
+
+
+function getRetroPalette(){
+  if(retroMode==='fc') return FC_PALETTE;
+  if(retroMode==='pce') return PCE_PALETTE;
+  if(retroMode==='pc98') return PC98_PALETTE;
+  return null;
+}
+
+// レトロパレットに制約したk-means（毎回ランダム初期化→結果が変わる）
+function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10){
+  if(n>=fullPal.length) return [...fullPal];
+  const d=data.data, np=d.length>>2;
+  // 明るさバイアス付き重み付きランダム初期化 (Gumbel-max trick)
+  // brightBias: -1=暗い優先 / 0=均等 / 1=明るい優先
+  const scale=brightBias*3; // 指数の傾き
+  const scores=fullPal.map((c,i)=>{
+    const lum=(0.299*c[0]+0.587*c[1]+0.114*c[2])/255;
+    return Math.random()*Math.exp(scale*lum);
+  });
+  const sortedIdx=[...Array(fullPal.length).keys()].sort((a,b)=>scores[b]-scores[a]);
+  let centers=sortedIdx.slice(0,n).map(i=>[...fullPal[i]]);
+  for(let iter=0;iter<iters;iter++){
+    // 各ピクセルを最近傍クラスタに割り当て
+    const sums=centers.map(()=>[0,0,0,0]);
+    for(let i=0;i<np;i++){
+      const r=d[i*4],g=d[i*4+1],b=d[i*4+2];
+      let bi=0,bd=Infinity;
+      for(let j=0;j<centers.length;j++){
+        const dist=(r-centers[j][0])**2+(g-centers[j][1])**2+(b-centers[j][2])**2;
+        if(dist<bd){bd=dist;bi=j;}
+      }
+      sums[bi][0]+=r;sums[bi][1]+=g;sums[bi][2]+=b;sums[bi][3]++;
+    }
+    // 重心を計算してレトロパレット最近傍色にスナップ
+    centers=sums.map((s,ci)=>{
+      if(s[3]===0) return centers[ci];
+      const mr=s[0]/s[3],mg=s[1]/s[3],mb=s[2]/s[3];
+      let bi=0,bd=Infinity;
+      for(let j=0;j<fullPal.length;j++){
+        const dist=(mr-fullPal[j][0])**2+(mg-fullPal[j][1])**2+(mb-fullPal[j][2])**2;
+        if(dist<bd){bd=dist;bi=j;}
+      }
+      return [...fullPal[bi]];
+    });
+  }
+  // 重複除去
+  const seen=new Set(),result=[];
+  for(const c of centers){const k=c.join(',');if(!seen.has(k)){seen.add(k);result.push(c);}}
+  return result;
+}
+
+function switchRetroMode(m){
+  retroMode=m;
+  ['Off','FC','PCE','PC98'].forEach(n=>{
+    const el=document.getElementById('retroTab'+n);
+    if(el) el.className='tab'+(retroMode===n.toLowerCase()?' active':'');
+  });
+  ['Off','FC','PCE','PC98'].forEach(n=>{
+    const el=document.getElementById('retroInfo'+n);
+    if(el) el.style.display=m===n.toLowerCase()?'':'none';
+  });
+  // 明るさ共有コントロール
+  const shared=document.getElementById('retroSharedControls');
+  if(shared) shared.style.display=(m!=='off')?'':'none';
+  // レトロモード時はカラー設定セクションにノート表示
+  const note=document.getElementById('retroModeActiveNote');
+  if(note) note.style.display=(m!=='off')?'':'none';
+}
+
+
+
+// ===== END =====
+</script>
+</body>
+</html>
