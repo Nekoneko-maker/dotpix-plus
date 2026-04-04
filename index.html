@@ -359,6 +359,23 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 
 
 
+/* ===== CRT FILTER ===== */
+.crt-wrap { position:relative; display:inline-block; line-height:0; }
+.crt-overlay {
+  position:absolute; inset:0; pointer-events:none; z-index:2;
+  border-radius:2px; overflow:hidden;
+}
+.crt-canvas {
+  grid-area:1/1; width:100%; height:auto; pointer-events:none;
+}
+/* PCE 解像度モードトグル */
+.pce-res-toggle {
+  display:flex; align-items:center; gap:6px; margin-top:8px;
+  font-size:11px; color:var(--text2);
+}
+.pce-res-toggle .tabs { gap:3px; }
+.pce-res-toggle .tab { padding:2px 8px; font-size:10px; }
+
 @media (max-width: 700px) {
   .layout { grid-template-columns: 1fr; }
   .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
@@ -452,8 +469,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
             <span style="font-size:11px;color:var(--text3)">設定した数値はレトロパレットモードにも適用されます。</span>
           </div>
           <div style="margin-top:8px">
-            <div class="label-row">エッジ強度 <span class="val" id="edgeStrVal">60%</span></div>
-            <input type="range" id="edgeStrSlider" min="0" max="100" value="60" step="5"
+            <div class="label-row">エッジ強度 <span class="val" id="edgeStrVal">40%</span></div>
+            <input type="range" id="edgeStrSlider" min="0" max="100" value="40" step="5"
               oninput="document.getElementById('edgeStrVal').textContent=this.value+'%'">
             <div class="hint" style="margin-top:4px">高いほど輪郭線がシャープ</div>
           </div>
@@ -637,6 +654,34 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       <button class="tab active" id="btnBoth" onclick="setView('both')">比較</button>
       <button class="tab" id="btnOrig" onclick="setView('orig')">原画</button>
       <button class="tab" id="btnDot" onclick="setView('dot')">ドット絵</button>
+    </div>
+
+    <!-- CRT Filter controls -->
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;font-size:11px;color:var(--text2)">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;color:var(--text1)">
+        <input type="checkbox" id="crtToggle" onchange="updateCRT()"> 📺 CRT
+      </label>
+      <span style="color:var(--border)">|</span>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="crtScanlines" checked onchange="updateCRT()"> スキャンライン
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="crtBloom" checked onchange="updateCRT()"> 滲み
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="crtNoise" onchange="updateCRT()"> ノイズ
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="crtVignette" checked onchange="updateCRT()"> ビネット
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="crtAspect" onchange="updateCRT()"> 非正方形px（FC/PCE）
+      </label>
+      <span id="pceResWrap" style="display:none;align-items:center;gap:4px">
+        <span style="color:var(--text3)">PCE解像度:</span>
+        <label style="cursor:pointer"><input type="radio" name="pceRes" value="256" checked onchange="updateCRT()"> 256</label>
+        <label style="cursor:pointer"><input type="radio" name="pceRes" value="320" onchange="updateCRT()"> 320</label>
+      </span>
     </div>
 
     <div class="canvas-grid" id="canvasRow">
@@ -861,8 +906,10 @@ function renderRow(){
     wrap.appendChild(sizeLabel);
     const c2=document.createElement('canvas');c2.width=dotCanvas.width;c2.height=dotCanvas.height;
     c2.getContext('2d').drawImage(dotCanvas,0,0);
+    c2.style.imageRendering='pixelated';
     wrap.appendChild(c2);
     row.appendChild(wrap);
+    applyCRTToCanvas(c2,wrap);
   } else if(viewMode==='dot'&&!dotCanvas){
     const wrap=document.createElement('div');wrap.className='canvas-wrap';
     wrap.innerHTML='<div class="canvas-empty">先にドット化してください</div>';
@@ -932,48 +979,64 @@ function process(){
 }
 
 function quantizeWithPriority(data,n,pColors,weight){
-  const pixels=[];
-  for(let i=0;i<data.data.length;i+=4)pixels.push([data.data[i],data.data[i+1],data.data[i+2]]);
-  if(!pixels.length)return[[0,0,0]];
-  let weighted=[...pixels];
-  if(pColors.length>0){
-    const thr=60*60*3;
-    pixels.forEach(p=>{
-      if(pColors.some(pc=>colorDist(p,pc)<thr)){
-        for(let w=1;w<weight;w++)weighted.push(p);
-      }
-    });
+  const d=data.data, np=d.length>>2;
+  if(!np)return[[0,0,0]];
+  // ① サブサンプリング：最大4096ピクセルで k-means（整数パッキングで高速化）
+  const MAX=4096, thr=60*60*3;
+  const step=np>MAX?Math.ceil(np/MAX):1;
+  const sample=[]; // 整数パック: (r<<16)|(g<<8)|b
+  for(let i=0;i<np;i+=step){
+    const r=d[i*4],g=d[i*4+1],b=d[i*4+2];
+    const key=(r<<16)|(g<<8)|b;
+    const reps=(pColors.length>0&&pColors.some(pc=>(r-pc[0])**2+(g-pc[1])**2+(b-pc[2])**2<thr))?weight:1;
+    for(let w=0;w<reps;w++) sample.push(key);
   }
-  const seen=new Set();let clusters=[];
+  // ② クラスタ初期化（整数キー、無限ループなし）
+  const seen=new Set();const clusters=[];
   pColors.forEach(pc=>{
-    if(clusters.length<n){const k=pc.join(',');if(!seen.has(k)){seen.add(k);clusters.push([...pc]);}}
+    if(clusters.length<n){const k=(pc[0]<<16)|(pc[1]<<8)|pc[2];if(!seen.has(k)){seen.add(k);clusters.push([...pc]);}}
   });
-  // ユニーク色プールをシャッフルして順に取る → 無限ループ完全回避
-  const pool=[...new Set(weighted.map(p=>p.join(',')))].sort(()=>Math.random()-.5);
-  for(const key of pool){
+  const pool=[...new Set(sample)].sort(()=>Math.random()-.5);
+  for(const k of pool){
     if(clusters.length>=n)break;
-    if(!seen.has(key)){seen.add(key);clusters.push(key.split(',').map(Number));}
+    if(!seen.has(k)){seen.add(k);clusters.push([(k>>16)&255,(k>>8)&255,k&255]);}
   }
+  // ③ k-means（サンプルデータのみ）
   for(let iter=0;iter<12;iter++){
     const sums=clusters.map(()=>[0,0,0,0]);
-    weighted.forEach(p=>{
+    for(const k of sample){
+      const r=(k>>16)&255,g=(k>>8)&255,b=k&255;
       let bi=0,bd=Infinity;
-      clusters.forEach((c,i)=>{const d=colorDist(p,c);if(d<bd){bd=d;bi=i}});
-      sums[bi][0]+=p[0];sums[bi][1]+=p[1];sums[bi][2]+=p[2];sums[bi][3]++;
-    });
-    clusters=sums.map((s,i)=>s[3]>0?[Math.round(s[0]/s[3]),Math.round(s[1]/s[3]),Math.round(s[2]/s[3])]:clusters[i]);
+      for(let j=0;j<clusters.length;j++){
+        const dist=(r-clusters[j][0])**2+(g-clusters[j][1])**2+(b-clusters[j][2])**2;
+        if(dist<bd){bd=dist;bi=j;}
+      }
+      sums[bi][0]+=r;sums[bi][1]+=g;sums[bi][2]+=b;sums[bi][3]++;
+    }
+    for(let j=0;j<clusters.length;j++){
+      const s=sums[j];
+      if(s[3]>0)clusters[j]=[Math.round(s[0]/s[3]),Math.round(s[1]/s[3]),Math.round(s[2]/s[3])];
+    }
   }
   return clusters;
 }
 
 function mapToPalette(data,palette){
-  for(let i=0;i<data.data.length;i+=4){
-    let bi=0,bd=Infinity;
-    palette.forEach((c,j)=>{
-      const d=colorDist([data.data[i],data.data[i+1],data.data[i+2]],c);
-      if(d<bd){bd=d;bi=j}
-    });
-    data.data[i]=palette[bi][0];data.data[i+1]=palette[bi][1];data.data[i+2]=palette[bi][2];
+  // キャッシュ付き：同色は1回だけ探索
+  const cache=new Map();
+  const d=data.data;
+  for(let i=0;i<d.length;i+=4){
+    const key=(d[i]<<16)|(d[i+1]<<8)|d[i+2];
+    let bi=cache.get(key);
+    if(bi===undefined){
+      bi=0;let bd=Infinity;
+      for(let j=0;j<palette.length;j++){
+        const dist=(d[i]-palette[j][0])**2+(d[i+1]-palette[j][1])**2+(d[i+2]-palette[j][2])**2;
+        if(dist<bd){bd=dist;bi=j;}
+      }
+      cache.set(key,bi);
+    }
+    d[i]=palette[bi][0];d[i+1]=palette[bi][1];d[i+2]=palette[bi][2];
   }
 }
 
@@ -1178,20 +1241,22 @@ function getRetroPalette(){
 function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10){
   if(n>=fullPal.length) return [...fullPal];
   const d=data.data, np=d.length>>2;
-  // 明るさバイアス付き重み付きランダム初期化 (Gumbel-max trick)
-  // brightBias: -1=暗い優先 / 0=均等 / 1=明るい優先
-  const scale=brightBias*3; // 指数の傾き
-  const scores=fullPal.map((c,i)=>{
+  // ① サブサンプリング（最大4096ピクセル）
+  const MAX=4096, step=np>MAX?Math.ceil(np/MAX):1;
+  const sample=[];
+  for(let i=0;i<np;i+=step) sample.push([d[i*4],d[i*4+1],d[i*4+2]]);
+  // ② 明るさバイアス付きランダム初期化
+  const scale=brightBias*3;
+  const scores=fullPal.map(c=>{
     const lum=(0.299*c[0]+0.587*c[1]+0.114*c[2])/255;
     return Math.random()*Math.exp(scale*lum);
   });
   const sortedIdx=[...Array(fullPal.length).keys()].sort((a,b)=>scores[b]-scores[a]);
   let centers=sortedIdx.slice(0,n).map(i=>[...fullPal[i]]);
+  // ③ k-means（サンプルデータのみ）
   for(let iter=0;iter<iters;iter++){
-    // 各ピクセルを最近傍クラスタに割り当て
     const sums=centers.map(()=>[0,0,0,0]);
-    for(let i=0;i<np;i++){
-      const r=d[i*4],g=d[i*4+1],b=d[i*4+2];
+    for(const [r,g,b] of sample){
       let bi=0,bd=Infinity;
       for(let j=0;j<centers.length;j++){
         const dist=(r-centers[j][0])**2+(g-centers[j][1])**2+(b-centers[j][2])**2;
@@ -1199,7 +1264,6 @@ function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10){
       }
       sums[bi][0]+=r;sums[bi][1]+=g;sums[bi][2]+=b;sums[bi][3]++;
     }
-    // 重心を計算してレトロパレット最近傍色にスナップ
     centers=sums.map((s,ci)=>{
       if(s[3]===0) return centers[ci];
       const mr=s[0]/s[3],mg=s[1]/s[3],mb=s[2]/s[3];
@@ -1213,7 +1277,7 @@ function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10){
   }
   // 重複除去
   const seen=new Set(),result=[];
-  for(const c of centers){const k=c.join(',');if(!seen.has(k)){seen.add(k);result.push(c);}}
+  for(const c of centers){const k=(c[0]<<16)|(c[1]<<8)|c[2];if(!seen.has(k)){seen.add(k);result.push(c);}}
   return result;
 }
 
@@ -1233,9 +1297,144 @@ function switchRetroMode(m){
   // レトロモード時はカラー設定セクションにノート表示
   const note=document.getElementById('retroModeActiveNote');
   if(note) note.style.display=(m!=='off')?'':'none';
+  // CRTのPCE解像度トグル表示更新
+  updateCRT();
 }
 
 
+
+// ===== CRT FILTER =====
+let crtAnimId=null;
+
+function getCRTAspectScale(){
+  // 非正方形px: FC=8:7固定, PCE=256モード→8:7 / 320モード→1:1
+  if(!document.getElementById('crtAspect').checked) return 1;
+  if(retroMode==='fc') return 8/7;
+  if(retroMode==='pce'){
+    const res=document.querySelector('input[name="pceRes"]:checked').value;
+    return res==='320'?1:8/7;
+  }
+  return 1;
+}
+
+function updateCRT(){
+  // PCE解像度トグル表示制御（非正方形px有効 && PCEモード時のみ）
+  const aspectOn=document.getElementById('crtAspect').checked;
+  const pceWrap=document.getElementById('pceResWrap');
+  pceWrap.style.display=(aspectOn&&retroMode==='pce')?'flex':'none';
+
+  if(crtAnimId){cancelAnimationFrame(crtAnimId);crtAnimId=null;}
+  renderRow(); // re-render with/without CRT
+}
+
+function applyCRTToCanvas(srcCanvas,wrap){
+  const enabled=document.getElementById('crtToggle').checked;
+  if(!enabled) return;
+
+  const scanlines=document.getElementById('crtScanlines').checked;
+  const bloom=document.getElementById('crtBloom').checked;
+  const noise=document.getElementById('crtNoise').checked;
+  const vignette=document.getElementById('crtVignette').checked;
+  const scale=getCRTAspectScale();
+
+  // ① wrap の構造を flex 列に変更し、inner で srcCanvas + overlay をグリッド重ね表示
+  //    wrap > [title, sizeLabel, inner(grid) > [srcCanvas, ov]]
+  //    grid-area:1/1 で2枚を同セルに重ね、place-items:center で縦中央揃え
+  const arW=srcCanvas.width*scale;
+  const arH=srcCanvas.height;
+
+  wrap.removeChild(srcCanvas);
+  wrap.style.display='flex';
+  wrap.style.flexDirection='column';
+
+  const inner=document.createElement('div');
+  inner.style.cssText='flex:1;display:grid;place-items:center;min-height:0;overflow:hidden;width:100%;position:relative;';
+
+  // srcCanvas のCSSサイズ (aspect-ratio で縦横比を保ちながら横いっぱい)
+  srcCanvas.style.gridArea='1/1';
+  srcCanvas.style.width='100%';
+  srcCanvas.style.height='auto';
+  if(scale!==1) srcCanvas.style.aspectRatio=arW+'/'+arH;
+
+  inner.appendChild(srcCanvas);
+
+  // ② overlay canvas — srcCanvas と同セルに重ね、同サイズにする
+  const ov=document.createElement('canvas');
+  ov.className='crt-canvas';
+  ov.width=srcCanvas.width; ov.height=srcCanvas.height;
+  ov.style.gridArea='1/1';
+  ov.style.width='100%';
+  ov.style.height='auto';
+  if(scale!==1) ov.style.aspectRatio=arW+'/'+arH;
+  ov.style.pointerEvents='none';
+  inner.appendChild(ov);
+
+  wrap.appendChild(inner);
+
+  const W=ov.width, H=ov.height;
+  const ctx=ov.getContext('2d');
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // スキャンライン
+    if(scanlines){
+      for(let y=0;y<H;y+=2){
+        ctx.fillStyle='rgba(0,0,0,0.20)';
+        ctx.fillRect(0,y,W,1);
+      }
+    }
+
+    // 滲み（輝度の高いピクセルに薄くグロー）
+    if(bloom){
+      const src=srcCanvas.getContext('2d').getImageData(0,0,W,H).data;
+      const bd=ctx.getImageData(0,0,W,H);
+      for(let y=1;y<H-1;y++){
+        for(let x=1;x<W-1;x++){
+          const i=(y*W+x)*4;
+          const lum=src[i]*.299+src[i+1]*.587+src[i+2]*.114;
+          if(lum>180){
+            // 周辺4ピクセルの平均を薄く乗算
+            const spread=((lum-180)/75); // 0〜1
+            const alpha=Math.round(spread*18); // 最大18 (弱め)
+            const oi=i;
+            bd.data[oi]=Math.min(255,bd.data[oi]+Math.round(src[i]*spread*0.15));
+            bd.data[oi+1]=Math.min(255,bd.data[oi+1]+Math.round(src[i+1]*spread*0.15));
+            bd.data[oi+2]=Math.min(255,bd.data[oi+2]+Math.round(src[i+2]*spread*0.15));
+            bd.data[oi+3]=Math.min(255,alpha);
+          }
+        }
+      }
+      ctx.putImageData(bd,0,0);
+    }
+
+    // ノイズ
+    if(noise){
+      const bd2=ctx.getImageData(0,0,W,H);
+      for(let i=0;i<bd2.data.length;i+=4){
+        const n=(Math.random()-.5)*22;
+        bd2.data[i]=Math.max(0,Math.min(255,bd2.data[i]+n));
+        bd2.data[i+1]=Math.max(0,Math.min(255,bd2.data[i+1]+n));
+        bd2.data[i+2]=Math.max(0,Math.min(255,bd2.data[i+2]+n));
+        bd2.data[i+3]=Math.round(Math.abs(n)*1.5);
+      }
+      ctx.putImageData(bd2,0,0);
+    }
+
+    // ビネット
+    if(vignette){
+      const gr=ctx.createRadialGradient(W/2,H/2,H*0.28,W/2,H/2,H*0.88);
+      gr.addColorStop(0,'rgba(0,0,0,0)');
+      gr.addColorStop(1,'rgba(0,0,0,0.50)');
+      ctx.fillStyle=gr;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    if(noise) crtAnimId=requestAnimationFrame(draw); // ノイズのみアニメーション
+  }
+
+  draw();
+}
 
 // ===== END =====
 </script>
