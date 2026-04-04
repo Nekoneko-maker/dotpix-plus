@@ -18,7 +18,7 @@ Works completely offline.
 No installation needed. Open `index.html` in your browser and you're good to go.
 
 Or use the live version:
-👉 https://yourusername.github.io/dotpix-plus
+👉 https://github.com/Nekoneko-maker/dotpix-plus
 
 ## Tech
 
