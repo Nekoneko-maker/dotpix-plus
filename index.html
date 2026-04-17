@@ -548,6 +548,45 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       <button class="btn" id="dlDotBtn" onclick="downloadDot()" disabled title="1ドット=1ピクセルで保存">等倍保存</button>
     </div>
 
+    <!-- Export Section -->
+    <div class="section" id="secExport" style="display:none">
+      <div class="section-header collapsible" onclick="toggleSection('secExport')">
+        拡大エクスポート
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="hint" id="exportSrcLabel"></div>
+        <div>
+          <div class="label-row" style="margin-bottom:6px">倍率</div>
+          <div class="tabs">
+            <div class="tab" id="scaleBtn15" onclick="setExportScale(1.5)">×1.5</div>
+            <div class="tab" id="scaleBtn2" onclick="setExportScale(2)">×2</div>
+            <div class="tab active" id="scaleBtn3" onclick="setExportScale(3)">×3</div>
+            <div class="tab" id="scaleBtn4" onclick="setExportScale(4)">×4</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <div class="label-row" style="margin-bottom:4px">幅 (px)</div>
+            <input type="number" id="exportW" min="1" max="8192" oninput="onExportSizeChange('w')">
+          </div>
+          <div>
+            <div class="label-row" style="margin-bottom:4px">高さ (px)</div>
+            <input type="number" id="exportH" min="1" max="8192" oninput="onExportSizeChange('h')">
+          </div>
+        </div>
+        <div>
+          <div class="label-row" style="margin-bottom:6px">補間アルゴリズム</div>
+          <div class="tabs">
+            <div class="tab active" id="algNN" onclick="setExportAlg('nn')">NN（ニアレスト）</div>
+            <div class="tab" id="algBilinear" onclick="setExportAlg('bilinear')">バイリニア</div>
+          </div>
+          <div class="hint" style="margin-top:6px" id="exportAlgHint">ニアレストネイバー。ドット境界がシャープ（ツクールMZ推奨）。</div>
+        </div>
+        <button class="btn orange" style="width:100%" onclick="downloadExport()">拡大してダウンロード</button>
+      </div>
+    </div>
+
     <!-- Retro Mode (collapsible) -->
     <div class="section" id="secRetro">
       <div class="section-header collapsible" onclick="toggleSection('secRetro')">
@@ -645,53 +684,6 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       </div>
     </div>
 
-    <!-- Custom Palette (collapsible) -->
-    <div class="section" id="secCustomPal">
-      <div class="section-header collapsible" onclick="toggleSection('secCustomPal')">
-        カスタムパレット <span class="badge" style="margin-left:4px;background:var(--accent2)">NEW</span>
-        <span class="collapse-arrow">▼</span>
-      </div>
-      <div class="section-body">
-        <div class="hint">読み込んだパレットをドット化に使用します。</div>
-
-        <div class="toggle-row">
-          <label class="toggle"><input type="checkbox" id="customPalToggle" onchange="toggleCustomMode()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
-          カスタムパレットを使用
-        </div>
-
-        <div class="btn-row">
-          <button class="btn" onclick="document.getElementById('hexFileInput').click()">.hex 読み込み</button>
-          <button class="btn" onclick="document.getElementById('palImgInput').click()">パレット画像</button>
-        </div>
-        <input type="file" id="hexFileInput" accept=".hex,.txt" style="display:none" onchange="loadHexFile(this)">
-        <input type="file" id="palImgInput" accept="image/*" style="display:none" onchange="loadPaletteImage(this)">
-
-        <div id="customPalInfo" style="display:none">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <span style="font-size:11px;color:var(--text2)" id="customPalCountDisp">0色読み込み済み</span>
-            <button class="btn danger" style="padding:2px 10px;font-size:11px" onclick="clearCustomPalette()">クリア</button>
-          </div>
-          <div class="retro-chip-list" id="customSwatchList"></div>
-          <div style="margin-top:10px">
-            <div class="retro-count-row">
-              <span>使用色数</span>
-              <input type="range" class="orange" id="customCountSlider" min="2" max="256" value="16" step="1" style="flex:1" oninput="syncCustomCount(this.value)">
-              <span class="spin-wrap">
-                <input type="text" inputmode="numeric" class="pal-num-inline" id="customCountNum" value="16" onchange="syncCustomCount(this.value)">
-                <span class="spin-btns">
-                  <button class="spin-btn" onclick="spinCustomCount(1)">▲</button>
-                  <button class="spin-btn" onclick="spinCustomCount(-1)">▼</button>
-                </span>
-              </span>
-            </div>
-            <div style="text-align:right;font-size:11px;color:var(--accent3);font-family:'Space Mono',monospace;margin-top:3px" id="customCountDisp">16 / 0色</div>
-          </div>
-        </div>
-
-        <div id="customPalEmpty" class="hint">HEXファイルまたはパレット画像を読み込んでください。</div>
-      </div>
-    </div>
-
   </aside>
 
   <!-- MAIN -->
@@ -701,6 +693,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       <button class="tab active" id="btnBoth" onclick="setView('both')">比較</button>
       <button class="tab" id="btnOrig" onclick="setView('orig')">原画</button>
       <button class="tab" id="btnDot" onclick="setView('dot')">ドット絵</button>
+      <button class="tab" id="btnExport" onclick="setView('export')">拡大プレビュー</button>
     </div>
 
     <!-- CRT Filter controls -->
@@ -752,9 +745,6 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 let origImg=null, dotCanvas=null, viewMode='both', specMode='dotsize', picking=false, priorityColors=[];
 let pixelMode='A', ditherMode='none';
 let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98'
-let customMode=false;
-let customPaletteFull=[];
-let customCountVal2=16;
 // レトロ色数は DOM ではなくこの変数を正とする
 const retroCountVal={fc:12,pce:16,pc98:16};
 let retroDebounce=null;
@@ -779,8 +769,10 @@ function loadFile(f){
       origImg=img;
       dotCanvas=null;
       document.getElementById('dlBtn').disabled=true;
+      document.getElementById('dlDotBtn').disabled=true;
       document.getElementById('paletteSection').style.display='none';
       renderRow();
+      updateExportSection();
     };
     img.src=ev.target.result;
   };
@@ -910,7 +902,7 @@ function renderPriorityList(){
 // ===== VIEW =====
 function setView(v){
   viewMode=v;
-  ['both','orig','dot'].forEach(id=>{
+  ['both','orig','dot','export'].forEach(id=>{
     const btn=document.getElementById('btn'+id.charAt(0).toUpperCase()+id.slice(1));
     if(btn)btn.className='tab'+(viewMode===id?' active':'');
   });
@@ -924,6 +916,29 @@ function renderRow(){
 
   if(!origImg){
     row.innerHTML='<div class="canvas-wrap" style="grid-column:1/-1"><div class="canvas-empty">画像を読み込んでドット化しよう</div></div>';
+    return;
+  }
+
+  if(viewMode==='export'){
+    const {w:srcW,h:srcH}=getExportBase();
+    const outW=Math.max(1,parseInt(document.getElementById('exportW').value)||Math.round(srcW*exportScale));
+    const outH=Math.max(1,parseInt(document.getElementById('exportH').value)||Math.round(srcH*exportScale));
+    const src=document.createElement('canvas');src.width=srcW;src.height=srcH;
+    const sctx=src.getContext('2d');
+    if(dotCanvas){sctx.imageSmoothingEnabled=false;sctx.drawImage(dotCanvas,0,0,srcW,srcH);}
+    else{sctx.drawImage(origImg,0,0);}
+    const out=document.createElement('canvas');out.width=outW;out.height=outH;
+    const octx=out.getContext('2d');
+    if(exportAlg==='nn'){octx.imageSmoothingEnabled=false;}
+    else{octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';}
+    octx.drawImage(src,0,0,outW,outH);
+    const wrap=document.createElement('div');wrap.className='canvas-wrap';
+    const title=document.createElement('div');title.className='canvas-title';
+    title.textContent='EXPORT PREVIEW — '+outW+'×'+outH+' / '+exportAlg.toUpperCase();
+    wrap.appendChild(title);
+    out.style.cssText='display:block;width:100%;'+(exportAlg==='nn'?'image-rendering:pixelated;':'image-rendering:auto;');
+    wrap.appendChild(out);
+    row.appendChild(wrap);
     return;
   }
 
@@ -1002,9 +1017,7 @@ function process(){
 
   // Choose palette
   let palette;
-  if(customMode&&customPaletteFull.length>0){
-    palette=reduceRetroKMeans(data,customPaletteFull,customCountVal2,0);
-  } else if(retroMode==='off'){
+  if(retroMode==='off'){
     palette=quantizeWithPriority(data,palN,priorityColors,weight);
   } else {
     const fullPal=getRetroPalette();
@@ -1028,6 +1041,7 @@ function process(){
   renderRow();
   document.getElementById('dlBtn').disabled=false;
   document.getElementById('dlDotBtn').disabled=false;
+  updateExportSection();
 }
 
 function quantizeWithPriority(data,n,pColors,weight){
@@ -1346,10 +1360,9 @@ function switchRetroMode(m){
   // 明るさ共有コントロール
   const shared=document.getElementById('retroSharedControls');
   if(shared) shared.style.display=(m!=='off')?'':'none';
-  // カスタムモードと排他
-  if(m!=='off'){customMode=false;document.getElementById('customPalToggle').checked=false;}
   // レトロモード時はカラー設定セクションにノート表示
-  updateRetroNoteVisibility();
+  const note=document.getElementById('retroModeActiveNote');
+  if(note) note.style.display=(m!=='off')?'':'none';
   // CRTのPCE解像度トグル表示更新
   updateCRT();
 }
@@ -1489,109 +1502,115 @@ function applyCRTToCanvas(srcCanvas,wrap){
   draw();
 }
 
-// ===== CUSTOM PALETTE =====
-function updateRetroNoteVisibility(){
-  const note=document.getElementById('retroModeActiveNote');
-  if(note) note.style.display=(retroMode!=='off'||customMode)?'':'none';
+// ===== EXPORT =====
+let exportAlg = 'nn';
+let exportScale = 3;
+
+function getExportBase() {
+  if (dotCanvas) {
+    const [sw, sh] = getSmallSize();
+    return { w: sw, h: sh, label: `ドット絵 (${sw}×${sh} dots)` };
+  }
+  return { w: origImg.width, h: origImg.height, label: `原画 (${origImg.width}×${origImg.height})` };
 }
 
-function toggleCustomMode(){
-  customMode=document.getElementById('customPalToggle').checked;
-  if(customMode&&retroMode!=='off') switchRetroMode('off');
-  updateRetroNoteVisibility();
-  if(dotCanvas) process();
+function updateExportSection() {
+  const sec = document.getElementById('secExport');
+  if (!origImg) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const base = getExportBase();
+  document.getElementById('exportSrcLabel').textContent = 'ソース: ' + base.label;
+  updateExportSizeFromScale();
 }
 
-function loadHexFile(input){
-  const file=input.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const lines=e.target.result.split(/\r?\n/);
-    const colors=[];
-    for(const line of lines){
-      const hex=line.trim().replace(/^#/,'');
-      if(/^[0-9a-fA-F]{6}$/.test(hex))
-        colors.push([parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)]);
-    }
-    if(!colors.length){alert('有効な色が見つかりませんでした。');return;}
-    setCustomPalette(colors);
-  };
-  reader.readAsText(file);
-  input.value='';
+function setExportScale(s) {
+  exportScale = s;
+  updateExportSizeFromScale();
+  updateScaleBtnUI();
+  if(viewMode==='export') renderRow();
 }
 
-function loadPaletteImage(input){
-  const file=input.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const img=new Image();
-    img.onload=()=>{
-      const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
-      const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
-      const d=ctx.getImageData(0,0,img.width,img.height).data;
-      const np=d.length>>2;
-      const step=np>2048?Math.ceil(np/2048):1;
-      const seen=new Set(),colors=[];
-      for(let i=0;i<np;i+=step){
-        if(d[i*4+3]<128) continue;
-        const key=(d[i*4]<<16)|(d[i*4+1]<<8)|d[i*4+2];
-        if(!seen.has(key)){seen.add(key);colors.push([d[i*4],d[i*4+1],d[i*4+2]]);}
-      }
-      if(!colors.length){alert('有効な色が見つかりませんでした。');return;}
-      setCustomPalette(colors);
-    };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-  input.value='';
+function updateExportSizeFromScale() {
+  if (!origImg) return;
+  const { w, h } = getExportBase();
+  document.getElementById('exportW').value = Math.round(w * exportScale);
+  document.getElementById('exportH').value = Math.round(h * exportScale);
 }
 
-function setCustomPalette(colors){
-  customPaletteFull=colors;
-  const max=colors.length;
-  document.getElementById('customCountSlider').max=max;
-  customCountVal2=Math.max(2,Math.min(customCountVal2,max));
-  syncCustomCount(customCountVal2);
-  renderCustomSwatches();
-  document.getElementById('customPalInfo').style.display='';
-  document.getElementById('customPalEmpty').style.display='none';
-  document.getElementById('customPalCountDisp').textContent=max+'色読み込み済み';
-  document.getElementById('customPalToggle').checked=true;
-  customMode=true;
-  if(retroMode!=='off') switchRetroMode('off');
-  updateRetroNoteVisibility();
-  if(dotCanvas){clearTimeout(retroDebounce);retroDebounce=setTimeout(process,300);}
+function onExportSizeChange(axis) {
+  if (!origImg) return;
+  const { w: bw, h: bh } = getExportBase();
+  const wEl = document.getElementById('exportW');
+  const hEl = document.getElementById('exportH');
+  if (axis === 'w') {
+    const w = parseInt(wEl.value) || bw;
+    exportScale = w / bw;
+    hEl.value = Math.round(bh * exportScale);
+  } else {
+    const h = parseInt(hEl.value) || bh;
+    exportScale = h / bh;
+    wEl.value = Math.round(bw * exportScale);
+  }
+  updateScaleBtnUI();
+  if(viewMode==='export') renderRow();
 }
 
-function renderCustomSwatches(){
-  const list=document.getElementById('customSwatchList');list.innerHTML='';
-  customPaletteFull.forEach(c=>{
-    const chip=document.createElement('div');chip.className='retro-chip';
-    chip.style.background=`rgb(${c[0]},${c[1]},${c[2]})`;
-    chip.title='#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');
-    list.appendChild(chip);
+function updateScaleBtnUI() {
+  [[1.5, 'scaleBtn15'], [2, 'scaleBtn2'], [3, 'scaleBtn3'], [4, 'scaleBtn4']].forEach(([s, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'tab' + (Math.abs(exportScale - s) < 0.01 ? ' active' : '');
   });
 }
 
-function syncCustomCount(v){
-  const max=customPaletteFull.length||256;
-  v=Math.max(2,Math.min(max,parseInt(v)||2));
-  customCountVal2=v;
-  document.getElementById('customCountSlider').value=v;
-  document.getElementById('customCountNum').value=v;
-  document.getElementById('customCountDisp').textContent=v+' / '+max+'色';
-  if(dotCanvas&&customMode){clearTimeout(retroDebounce);retroDebounce=setTimeout(process,300);}
+const EXPORT_ALG_HINTS = {
+  nn: 'ニアレストネイバー。ドット境界がシャープ（ツクールMZ推奨）。',
+  bilinear: 'バイリニア補間。拡大時になめらかにぼかす。'
+};
+
+function setExportAlg(alg) {
+  exportAlg = alg;
+  document.getElementById('algNN').className = 'tab' + (alg === 'nn' ? ' active' : '');
+  document.getElementById('algBilinear').className = 'tab' + (alg === 'bilinear' ? ' active' : '');
+  document.getElementById('exportAlgHint').textContent = EXPORT_ALG_HINTS[alg];
+  if(viewMode==='export') renderRow();
 }
 
-function spinCustomCount(delta){syncCustomCount(customCountVal2+delta);}
+function downloadExport() {
+  if (!origImg) return;
 
-function clearCustomPalette(){
-  customPaletteFull=[];customMode=false;
-  document.getElementById('customPalToggle').checked=false;
-  document.getElementById('customPalInfo').style.display='none';
-  document.getElementById('customPalEmpty').style.display='';
-  document.getElementById('customSwatchList').innerHTML='';
-  updateRetroNoteVisibility();
+  let srcCanvas;
+  const { w: srcW, h: srcH } = getExportBase();
+
+  if (dotCanvas) {
+    srcCanvas = document.createElement('canvas');
+    srcCanvas.width = srcW; srcCanvas.height = srcH;
+    const sctx = srcCanvas.getContext('2d');
+    sctx.imageSmoothingEnabled = false;
+    sctx.drawImage(dotCanvas, 0, 0, srcW, srcH);
+  } else {
+    srcCanvas = document.createElement('canvas');
+    srcCanvas.width = srcW; srcCanvas.height = srcH;
+    srcCanvas.getContext('2d').drawImage(origImg, 0, 0);
+  }
+
+  const outW = parseInt(document.getElementById('exportW').value) || Math.round(srcW * exportScale);
+  const outH = parseInt(document.getElementById('exportH').value) || Math.round(srcH * exportScale);
+
+  const out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  const octx = out.getContext('2d');
+  if (exportAlg === 'nn') {
+    octx.imageSmoothingEnabled = false;
+  } else {
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+  }
+  octx.drawImage(srcCanvas, 0, 0, outW, outH);
+
+  const a = document.createElement('a');
+  a.download = `dotpix_export_${outW}x${outH}.png`;
+  a.href = out.toDataURL('image/png');
+  a.click();
 }
 
 // ===== END =====
