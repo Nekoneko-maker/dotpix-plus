@@ -480,6 +480,18 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
               <div class="tab active-blue" id="ditherNone" onclick="switchDither('none')">なし</div>
               <div class="tab" id="ditherOrdered" onclick="switchDither('ordered')">Ordered</div>
               <div class="tab" id="ditherFS" onclick="switchDither('fs')">Floyd-S</div>
+              <div class="tab" id="ditherBayer" onclick="switchDither('bayer')">Bayer</div>
+            </div>
+            <div id="ditherBayerOpts" style="display:none;margin-top:6px">
+              <div class="tabs">
+                <div class="tab active-blue" id="bayer4tab" onclick="switchBayerSize('4x4')" style="font-size:11px">4×4</div>
+                <div class="tab" id="bayer8tab" onclick="switchBayerSize('8x8')" style="font-size:11px">8×8</div>
+              </div>
+            </div>
+            <div id="ditherSpreadRow" style="display:none;margin-top:8px">
+              <div class="label-row">ディザ強度 <span class="val" id="ditherSpreadVal">50%</span></div>
+              <input type="range" class="blue" id="ditherSpreadSlider" min="0" max="100" value="50" step="5"
+                oninput="document.getElementById('ditherSpreadVal').textContent=this.value+'%'">
             </div>
             <div class="hint" style="margin-top:6px" id="ditherHint">ディザリングなし。パレット色に直接スナップ。</div>
           </div>
@@ -790,7 +802,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 <script>
 // ===== VARS =====
 let origImg=null, dotCanvas=null, viewMode='both', specMode='dotsize', picking=false, priorityColors=[];
-let pixelMode='A', ditherMode='none';
+let pixelMode='A', ditherMode='none', bayerSize='4x4';
 let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98'
 let customMode=false, customPaletteFull=[], customCountVal2=16;
 // レトロ色数は DOM ではなくこの変数を正とする
@@ -1192,14 +1204,22 @@ function switchPixelMode(m){
 const DITHER_HINTS={
   none:'ディザリングなし。パレット色に直接スナップ。',
   ordered:'Bayerマトリクスによる規則的なディザリング。ドット絵らしさを保つ。',
-  fs:'Floyd-Steinbergによる誤差拡散。グラデーションが滑らか。'
+  fs:'Floyd-Steinbergによる誤差拡散。グラデーションが滑らか。',
+  bayer:'Bayerパターンディザリング。4×4または8×8行列で規則的なドットパターンを生成。'
 };
 function switchDither(m){
   ditherMode=m;
-  ['None','Ordered','FS'].forEach(n=>{
+  ['None','Ordered','FS','Bayer'].forEach(n=>{
     document.getElementById('dither'+n).className='tab'+(ditherMode===n.toLowerCase()?' active-blue':'');
   });
   document.getElementById('ditherHint').textContent=DITHER_HINTS[m];
+  document.getElementById('ditherBayerOpts').style.display=(m==='bayer')?'block':'none';
+  document.getElementById('ditherSpreadRow').style.display=(m==='ordered'||m==='bayer')?'block':'none';
+}
+function switchBayerSize(s){
+  bayerSize=s;
+  document.getElementById('bayer4tab').className='tab'+(s==='4x4'?' active-blue':'');
+  document.getElementById('bayer8tab').className='tab'+(s==='8x8'?' active-blue':'');
 }
 
 // ===== SMART MODE PROCESSING =====
@@ -1250,7 +1270,11 @@ function processSmartMode(ctx,data,sw,sh,palette,edgeStr,dither){
   if(dither==='none'){
     mapToPalette(data,palette);
   } else if(dither==='ordered'){
-    applyOrderedDither(data,sw,sh,palette);
+    const spread=parseInt(document.getElementById('ditherSpreadSlider').value)/100*48;
+    applyOrderedDither(data,sw,sh,palette,spread);
+  } else if(dither==='bayer'){
+    const spread=parseInt(document.getElementById('ditherSpreadSlider').value)/100*48;
+    applyBayerDither(data,sw,sh,palette,bayerSize,spread);
   } else {
     applyFloydSteinberg(data,sw,sh,palette);
   }
@@ -1264,12 +1288,39 @@ const BAYER4=[
   [ 3,11, 1, 9],
   [15, 7,13, 5]
 ];
-function applyOrderedDither(data,w,h,palette){
+const BAYER8=[
+  [ 0,32, 8,40, 2,34,10,42],
+  [48,16,56,24,50,18,58,26],
+  [12,44, 4,36,14,46, 6,38],
+  [60,28,52,20,62,30,54,22],
+  [ 3,35,11,43, 1,33, 9,41],
+  [51,19,59,27,49,17,57,25],
+  [15,47, 7,39,13,45, 5,37],
+  [63,31,55,23,61,29,53,21]
+];
+function applyOrderedDither(data,w,h,palette,spread=24){
   const d=data.data;
-  const spread=24; // color jitter range
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const t=(BAYER4[y%4][x%4]/16-0.5)*spread;
+      const i=(y*w+x)*4;
+      const r=Math.max(0,Math.min(255,d[i  ]+t));
+      const g=Math.max(0,Math.min(255,d[i+1]+t));
+      const b=Math.max(0,Math.min(255,d[i+2]+t));
+      let bi=0,bd=Infinity;
+      palette.forEach((c,j)=>{const dist=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;if(dist<bd){bd=dist;bi=j}});
+      d[i]=palette[bi][0];d[i+1]=palette[bi][1];d[i+2]=palette[bi][2];
+    }
+  }
+}
+function applyBayerDither(data,w,h,palette,size,spread){
+  const d=data.data;
+  const matrix=size==='8x8'?BAYER8:BAYER4;
+  const dim=size==='8x8'?8:4;
+  const norm=dim*dim;
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const t=(matrix[y%dim][x%dim]/norm-0.5)*spread;
       const i=(y*w+x)*4;
       const r=Math.max(0,Math.min(255,d[i  ]+t));
       const g=Math.max(0,Math.min(255,d[i+1]+t));
