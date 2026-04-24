@@ -12,9 +12,11 @@
   --bg: #0f0f0f;
   --surface: #1a1a1a;
   --surface2: #242424;
+  --surface3: #313131;
   --border: #2e2e2e;
   --border2: #3a3a3a;
   --text: #f0f0f0;
+  --text1: #f0f0f0;
   --text2: #888;
   --text3: #555;
   --accent: #b4ff5f;
@@ -23,6 +25,57 @@
   --danger: #ff5f5f;
   --radius: 10px;
   --radius-sm: 6px;
+}
+
+body[data-theme="paper"] {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --surface2: #f4ede2;
+  --surface3: #eadfce;
+  --border: #dbcdb6;
+  --border2: #cdb99a;
+  --text: #1d1408;
+  --text1: #1d1408;
+  --text2: #64543f;
+  --text3: #8c7963;
+  --accent: #4d9f48;
+  --accent2: #3b80c7;
+  --accent3: #c96d31;
+  --danger: #bf4747;
+}
+
+body[data-theme="sea"] {
+  --bg: #0b1b24;
+  --surface: #122734;
+  --surface2: #183545;
+  --surface3: #21495d;
+  --border: #295066;
+  --border2: #376984;
+  --text: #eef8fb;
+  --text1: #eef8fb;
+  --text2: #9bb7c7;
+  --text3: #6f8d9d;
+  --accent: #ffd166;
+  --accent2: #74c0fc;
+  --accent3: #ff9f6e;
+  --danger: #ff7d7d;
+}
+
+body[data-theme="high-contrast"] {
+  --bg: #000000;
+  --surface: #111111;
+  --surface2: #1d1d1d;
+  --surface3: #2c2c2c;
+  --border: #5d5d5d;
+  --border2: #808080;
+  --text: #ffffff;
+  --text1: #ffffff;
+  --text2: #d7d7d7;
+  --text3: #a5a5a5;
+  --accent: #d8ff57;
+  --accent2: #8bc8ff;
+  --accent3: #ffb067;
+  --danger: #ff8585;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,8 +92,11 @@ header {
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
+.header-copy { display:flex; align-items:baseline; gap:16px; }
 header h1 {
   font-family: 'Space Mono', monospace;
   font-size: 22px;
@@ -49,6 +105,21 @@ header h1 {
 }
 header h1 span { color: var(--accent3); }
 header p { font-size: 12px; color: var(--text3); }
+.theme-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.theme-switcher-label {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.theme-tabs { display: flex; gap: 4px; }
+.theme-tabs .tab { flex: 0 0 auto; min-width: 72px; }
 
 .layout {
   display: grid;
@@ -228,7 +299,7 @@ input[type=number]:focus { border-color: var(--accent); }
 
 /* Canvas area */
 .canvas-view-tabs { display: flex; gap: 4px; }
-.canvas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.canvas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }
 .canvas-grid.single { grid-template-columns: 1fr; }
 .canvas-wrap {
   background: var(--surface); border: 1px solid var(--border);
@@ -258,6 +329,221 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .palette-swatch.priority { outline: 2px solid var(--accent2); outline-offset: 1px; }
 
 .hint { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+.status-box {
+  display: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text2);
+}
+.status-box.show { display: block; }
+.status-box.warn {
+  background: #2d220f;
+  border-color: #6f5520;
+  color: #f3cd89;
+}
+.status-box.error {
+  background: #2a1010;
+  border-color: #7b2a2a;
+  color: #ffc0c0;
+}
+.step-label {
+  font-size: 10px;
+  color: var(--accent2);
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.flow-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+.flow-card.preset-card {
+  position: relative;
+  padding-right: 42px;
+}
+.flow-card.compact {
+  padding: 0;
+  overflow: hidden;
+}
+.flow-card.compact .step-label,
+.flow-card.compact .flow-title,
+.flow-card.compact .flow-copy {
+  display: none;
+}
+.flow-card.compact #secPresets {
+  margin-top: 0 !important;
+  border: 0;
+  border-radius: 0;
+}
+.flow-card.compact #secPresets .section-header {
+  border-bottom: 0;
+  padding: 10px 12px;
+}
+.preset-toggle-btn {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+}
+.preset-toggle-btn:hover {
+  color: var(--text1);
+}
+.flow-title {
+  font-size: 13px;
+  color: var(--text1);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.flow-copy {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.45;
+}
+.quick-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.primary-action {
+  width: 100%;
+  min-height: 42px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.secondary-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mini-meta {
+  font-size: 10px;
+  color: var(--text3);
+  line-height: 1.4;
+}
+.compare-stage {
+  position: relative;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+}
+.compare-layer,
+.compare-base {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.compare-overlay {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+.compare-divider {
+  grid-area: 1 / 1;
+  width: 2px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+  height: 100%;
+  justify-self: start;
+  pointer-events: none;
+}
+.compare-handle {
+  grid-area: 1 / 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  justify-self: start;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.compare-slider-wrap {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border);
+}
+.history-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.history-card {
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .15s, border-color .15s;
+}
+.history-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent2);
+}
+.history-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  display: block;
+  background: var(--surface);
+}
+.history-meta {
+  padding: 8px;
+  font-size: 10px;
+  color: var(--text3);
+  line-height: 1.5;
+}
+.history-empty {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 6px 2px;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.preset-btn {
+  text-align: left;
+  min-height: 58px;
+}
+.preset-btn strong {
+  display: block;
+  font-size: 12px;
+  color: var(--text1);
+}
+.preset-btn span {
+  display: block;
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 3px;
+  line-height: 1.4;
+}
 
 /* Pixel mode info box */
 .mode-info {
@@ -366,7 +652,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   border-radius:2px; overflow:hidden;
 }
 .crt-canvas {
-  grid-area:1/1; width:100%; height:auto; pointer-events:none;
+  grid-area:1/1; width:100%; height:auto; pointer-events:none; z-index:2; display:block;
 }
 /* PCE 解像度モードトグル */
 .pce-res-toggle {
@@ -386,23 +672,79 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 <body>
 
 <header>
-  <h1>DotPix<span>+</span></h1>
-  <p>ドット絵変換 — ブラウザ完結・オフライン対応</p>
+  <div class="header-copy">
+    <h1>DotPix<span>+</span></h1>
+    <p>ドット絵変換 — ブラウザ完結・オフライン対応</p>
+  </div>
+  <div class="theme-switcher">
+    <span class="theme-switcher-label">Theme</span>
+    <div class="theme-tabs">
+      <button class="tab active" id="themeDark" onclick="switchTheme('dark')">Dark</button>
+      <button class="tab" id="themePaper" onclick="switchTheme('paper')">Paper</button>
+      <button class="tab" id="themeSea" onclick="switchTheme('sea')">Sea</button>
+      <button class="tab" id="themeHighContrast" onclick="switchTheme('high-contrast')">Contrast</button>
+    </div>
+  </div>
 </header>
 
 <div class="layout">
   <!-- SIDEBAR -->
   <aside class="sidebar">
 
-    <!-- Upload -->
-    <div class="upload-zone" id="dropzone" onclick="document.getElementById('imgInput').click()">
-      <input type="file" id="imgInput" accept="image/*">
-      <div class="upload-icon">🖼️</div>
-      <div class="upload-text"><strong>クリックまたはドロップ</strong><br>PNG・JPG・GIF・WebP 対応</div>
+    <div class="quick-strip">
+      <div class="flow-card">
+        <div class="step-label">Step 1</div>
+        <div class="flow-title">画像を入れる</div>
+        <div class="flow-copy">まず素材を読み込んで、下のプリセットから近い雰囲気を選びます。</div>
+        <div class="upload-zone" id="dropzone" onclick="document.getElementById('imgInput').click()" style="margin-top:8px">
+          <input type="file" id="imgInput" accept="image/*">
+          <div class="upload-icon">🖼️</div>
+          <div class="upload-text"><strong>クリックまたはドロップ</strong><br>PNG・JPG・GIF・WebP 対応</div>
+        </div>
+        <div class="mini-meta" id="sourceMeta" style="margin-top:6px">画像未読込</div>
+      </div>
+      <div class="status-box" id="statusBox"></div>
+
+      <div class="flow-card preset-card" id="presetFlowCard">
+        <button class="preset-toggle-btn" id="presetToggleBtn" onclick="toggleSection('secPresets')" aria-label="プリセットを開閉">▼</button>
+        <div class="step-label">Step 2</div>
+        <div class="flow-title">プリセットを選ぶ</div>
+        <div class="flow-copy">最初はここから選ぶのが最短です。必要ならあとで詳細設定を開けます。</div>
+        <div class="section" id="secPresets" style="margin-top:8px">
+          <div class="section-header">
+            プリセット
+            <span class="badge" style="margin-left:4px;background:var(--accent2)">NEW</span>
+          </div>
+          <div class="section-body">
+            <div class="hint">1クリックで複数設定をまとめて反映します。画像読み込み後はそのまま再処理されます。</div>
+            <div class="preset-grid">
+              <button class="btn preset-btn" onclick="applyPreset('portrait')"><strong>顔写真向け</strong><span>スマート補完 / 滑らか / 16色</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('illustration')"><strong>イラスト向け</strong><span>輪郭重視 / Bayer / 24色</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('fc')"><strong>FC風</strong><span>FCパレット / 12色 / 非正方形向け</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('pce')"><strong>PCE風</strong><span>PCEパレット / 24色 / 彩度高め</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('pc98')"><strong>PC-98風</strong><span>PC-98パレット / 32色 / くっきり</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('rpg')"><strong>RPGツクール素材</strong><span>NN拡大向け / 16色 / シャープ</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-card">
+        <div class="step-label">Step 3</div>
+        <div class="flow-title">保存</div>
+        <div class="quick-actions" style="margin-top:8px">
+          <button class="btn accent primary-action" onclick="process(true)">ドット化する</button>
+          <div class="secondary-actions">
+            <button class="btn blue" id="dlBtn" onclick="download()" disabled>PNG保存</button>
+            <button class="btn" id="dlDotBtn" onclick="downloadDot()" disabled title="1ドット=1ピクセルで保存">等倍保存</button>
+          </div>
+        </div>
+        <div class="mini-meta" id="shareMeta" style="margin-top:6px">設定はブラウザに自動保存されます。</div>
+      </div>
     </div>
 
     <!-- Dot size (collapsible) -->
-    <div class="section" id="secDotSize">
+    <div class="section collapsed" id="secDotSize">
       <div class="section-header collapsible" onclick="toggleSection('secDotSize')">
         ドットサイズ / 解像度
         <span class="collapse-arrow">▼</span>
@@ -446,7 +788,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
     </div>
 
     <!-- Pixel Mode (collapsible) -->
-    <div class="section" id="secPixelMode">
+    <div class="section collapsed" id="secPixelMode">
       <div class="section-header collapsible" onclick="toggleSection('secPixelMode')">
         ピクセル化モード
         <span class="collapse-arrow">▼</span>
@@ -478,9 +820,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
             <div class="label-row" style="margin-bottom:6px">ディザリング</div>
             <div class="tabs">
               <div class="tab active-blue" id="ditherNone" onclick="switchDither('none')">なし</div>
-              <div class="tab" id="ditherOrdered" onclick="switchDither('ordered')">Ordered</div>
-              <div class="tab" id="ditherFS" onclick="switchDither('fs')">Floyd-S</div>
               <div class="tab" id="ditherBayer" onclick="switchDither('bayer')">Bayer</div>
+              <div class="tab" id="ditherFS" onclick="switchDither('fs')">Floyd-S</div>
             </div>
             <div id="ditherBayerOpts" style="display:none;margin-top:6px">
               <div class="tabs">
@@ -500,7 +841,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
     </div>
 
     <!-- Color (collapsible) -->
-    <div class="section" id="secColor">
+    <div class="section collapsed" id="secColor">
       <div class="section-header collapsible" onclick="toggleSection('secColor')">
         カラー設定
         <span class="collapse-arrow">▼</span>
@@ -529,7 +870,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
     </div>
 
     <!-- Priority (collapsible) -->
-    <div class="section" id="secPriority">
+    <div class="section collapsed" id="secPriority">
       <div class="section-header collapsible" onclick="toggleSection('secPriority')">
         優先カラー
         <span class="collapse-arrow">▼</span>
@@ -553,15 +894,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       </div>
     </div>
 
-    <!-- Actions (PNG) -->
-    <div class="btn-row">
-      <button class="btn accent" onclick="process()">ドット化する</button>
-      <button class="btn blue" id="dlBtn" onclick="download()" disabled>PNG保存</button>
-      <button class="btn" id="dlDotBtn" onclick="downloadDot()" disabled title="1ドット=1ピクセルで保存">等倍保存</button>
-    </div>
-
     <!-- Export Section -->
-    <div class="section" id="secExport" style="display:none">
+    <div class="section collapsed" id="secExport" style="display:none">
       <div class="section-header collapsible" onclick="toggleSection('secExport')">
         拡大エクスポート
         <span class="collapse-arrow">▼</span>
@@ -600,7 +934,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
     </div>
 
     <!-- Retro Mode (collapsible) -->
-    <div class="section" id="secRetro">
+    <div class="section collapsed" id="secRetro">
       <div class="section-header collapsible" onclick="toggleSection('secRetro')">
         レトロパレットモード <span class="badge" style="margin-left:4px">NEW</span>
         <span class="collapse-arrow">▼</span>
@@ -617,7 +951,11 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 
         <!-- Shared controls: brightness bias (FC/PCE active) -->
         <div id="retroSharedControls" style="display:none;margin-top:10px">
-          <div class="retro-count-row">
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="retroDeterministicToggle" onchange="syncRetroDeterministic(this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+            再現性重視（OFF / レトロ / カスタム共通）
+          </div>
+          <div class="retro-count-row" id="retroBrightRow" style="margin-top:8px">
             <span>明るさ</span>
             <input type="range" class="orange" id="retroBrightSlider" min="-100" max="100" value="0" step="1" style="flex:1" oninput="syncRetroBright(this.value)">
             <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent3);min-width:36px;text-align:right" id="retroBrightVal">0</span>
@@ -634,7 +972,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <div id="retroInfoFC" style="display:none">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
             <span class="retro-badge fc">FC</span>
-            <span style="font-size:11px;color:var(--text2)">ファミコン — 54色パレット</span>
+            <span style="font-size:11px;color:var(--text2)">FC系 — 54色パレット</span>
           </div>
           <div class="hint" style="margin-bottom:6px">2C02 NTSC基準の54色。使用色数を絞り込めます。</div>
           <div class="retro-count-row">
@@ -655,7 +993,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <div id="retroInfoPCE" style="display:none">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
             <span class="retro-badge pce">PCE</span>
-            <span style="font-size:11px;color:var(--text2)">PCエンジン — 512色</span>
+            <span style="font-size:11px;color:var(--text2)">PCE系 — 512色</span>
           </div>
           <div class="hint" style="margin-bottom:6px">RGB各3bit均等分割（各レベル = n÷7×255）の512色。</div>
           <div class="retro-count-row">
@@ -676,7 +1014,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <div id="retroInfoPC98" style="display:none">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
             <span class="retro-badge pc98">PC-98</span>
-            <span style="font-size:11px;color:var(--text2)">PC-9800 — 4096色</span>
+            <span style="font-size:11px;color:var(--text2)">PC-98系 — 4096色</span>
           </div>
           <div class="hint" style="margin-bottom:6px">RGB各4bit均等分割（各レベル = n÷15×255）の4096色。最大256色まで選択可能。</div>
           <div class="retro-count-row">
@@ -697,7 +1035,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
     </div>
 
     <!-- Custom Palette (collapsible) -->
-    <div class="section" id="secCustomPal">
+    <div class="section collapsed" id="secCustomPal">
       <div class="section-header collapsible" onclick="toggleSection('secCustomPal')">
         カスタムパレット <span class="badge" style="margin-left:4px;background:var(--accent2)">NEW</span>
         <span class="collapse-arrow">▼</span>
@@ -750,6 +1088,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
     <!-- View tabs -->
     <div class="tabs canvas-view-tabs">
       <button class="tab active" id="btnBoth" onclick="setView('both')">比較</button>
+      <button class="tab" id="btnSlider" onclick="setView('slider')">スライダー比較</button>
       <button class="tab" id="btnOrig" onclick="setView('orig')">原画</button>
       <button class="tab" id="btnDot" onclick="setView('dot')">ドット絵</button>
       <button class="tab" id="btnExport" onclick="setView('export')">拡大プレビュー</button>
@@ -795,6 +1134,13 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       <div class="palette-display" id="paletteDisplay"></div>
     </div>
 
+    <div class="section" id="historySection">
+      <div class="section-header">履歴スナップショット <span style="color:var(--accent2);margin-left:6px">直近5件</span></div>
+      <div class="section-body">
+        <div class="history-list" id="historyList"></div>
+      </div>
+    </div>
+
 
   </main>
 </div>
@@ -805,10 +1151,340 @@ let origImg=null, dotCanvas=null, viewMode='both', specMode='dotsize', picking=f
 let pixelMode='A', ditherMode='none', bayerSize='4x4';
 let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98'
 let customMode=false, customPaletteFull=[], customCountVal2=16;
+let currentPalette=[], processedSmallCanvas=null, exportPreviewCache=null, lastProcessSignature='';
 // レトロ色数は DOM ではなくこの変数を正とする
 const retroCountVal={fc:12,pce:16,pc98:16};
 let retroDebounce=null;
 let retroBrightBias=0; // -1 (暗い) ~ 0 (標準) ~ 1 (明るい)
+let retroDeterministic=false;
+let currentTheme='dark';
+let crtAnimId=null;
+let suppressAutoApply=false;
+let compareSliderPos=50;
+let historySnapshots=[];
+let saveDebounce=null;
+
+const SETTINGS_STORAGE_KEY='dotpix_settings_v2';
+const SNAPSHOT_LIMIT=5;
+const HISTORY_THUMB_SIZE=180;
+
+const MAX_IMAGE_PIXELS=16000000;
+const LARGE_IMAGE_PIXELS=6000000;
+const MAX_PALETTE_IMAGE_PIXELS=1048576;
+const MAX_PALETTE_SAMPLES=2048;
+const PRESETS={
+  portrait:{pixelMode:'B',ditherMode:'fs',bayerSize:'4x4',edgeStr:55,palNum:16,gray:false,retroMode:'off'},
+  illustration:{pixelMode:'B',ditherMode:'bayer',bayerSize:'8x8',edgeStr:65,palNum:24,gray:false,retroMode:'off'},
+  fc:{pixelMode:'B',ditherMode:'bayer',bayerSize:'4x4',edgeStr:55,retroMode:'fc',retroCount:12,retroBright:0,crtAspect:true},
+  pce:{pixelMode:'B',ditherMode:'bayer',bayerSize:'4x4',edgeStr:45,retroMode:'pce',retroCount:24,retroBright:10,crtAspect:true},
+  pc98:{pixelMode:'A',ditherMode:'none',bayerSize:'4x4',edgeStr:40,retroMode:'pc98',retroCount:32,retroBright:-5,crtAspect:false},
+  rpg:{pixelMode:'A',ditherMode:'none',bayerSize:'4x4',edgeStr:40,palNum:16,gray:false,retroMode:'off',exportScale:3,exportAlg:'nn'}
+};
+
+function setStatus(message='',type='warn'){
+  const box=document.getElementById('statusBox');
+  if(!box)return;
+  if(!message){
+    box.className='status-box';
+    box.textContent='';
+    return;
+  }
+  box.className='status-box show '+type;
+  box.textContent=message;
+}
+
+function applyUIState({reprocess=false,rerender=true,refreshExport=false,refreshCRT=false}={}){
+  if(suppressAutoApply) return;
+  if(reprocess){
+    process(true);
+    scheduleSettingsSave();
+    return;
+  }
+  if(rerender) renderRow();
+  if(refreshExport) updateExportSection();
+  if(refreshCRT) updateCRTOverlay();
+  scheduleSettingsSave();
+}
+
+function queueReprocess(delay=220){
+  if(suppressAutoApply) return;
+  if(!origImg || !dotCanvas) return;
+  clearTimeout(retroDebounce);
+  retroDebounce=setTimeout(()=>applyUIState({reprocess:true}),delay);
+}
+
+function resetProcessingCaches(){
+  processedSmallCanvas=null;
+  exportPreviewCache=null;
+  lastProcessSignature='';
+}
+
+function getProcessingSignature(){
+  return JSON.stringify({
+    ow:origImg?.width||0,
+    oh:origImg?.height||0,
+    specMode,
+    dot:document.getElementById('dotNumInline')?.value,
+    dotCount:document.getElementById('dotCountNumInline')?.value,
+    gray:document.getElementById('grayToggle')?.checked,
+    pal:document.getElementById('palNumInline')?.value,
+    weight:document.getElementById('weightSlider')?.value,
+    pixelMode,
+    edge:document.getElementById('edgeStrSlider')?.value,
+    ditherMode,
+    bayerSize,
+    spread:document.getElementById('ditherSpreadSlider')?.value,
+    retroMode,
+    retroCount:{...retroCountVal},
+    retroBrightBias,
+    retroDeterministic,
+    currentTheme,
+    customMode,
+    customCountVal2,
+    customPaletteSize:customPaletteFull.length,
+    priorityColors
+  });
+}
+
+function bindReactiveControls(){
+  [
+    ['grayToggle','change'],
+    ['edgeStrSlider','input'],
+    ['weightSlider','input'],
+    ['dotSlider','input'],
+    ['dotNumInline','change'],
+    ['dotCountSlider','input'],
+    ['dotCountNumInline','change'],
+    ['palSlider','input'],
+    ['palNumInline','change'],
+    ['ditherSpreadSlider','input']
+  ].forEach(([id,evt])=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.addEventListener(evt,()=>{
+      resetProcessingCaches();
+      queueReprocess();
+    });
+  });
+}
+
+function switchTheme(theme){
+  currentTheme=theme;
+  document.body.dataset.theme=theme==='dark'?'':theme;
+  const map={
+    dark:'themeDark',
+    paper:'themePaper',
+    sea:'themeSea',
+    'high-contrast':'themeHighContrast'
+  };
+  Object.entries(map).forEach(([name,id])=>{
+    const el=document.getElementById(id);
+    if(el) el.className='tab'+(theme===name?' active':'');
+  });
+  scheduleSettingsSave();
+}
+
+function scheduleSettingsSave(){
+  clearTimeout(saveDebounce);
+  saveDebounce=setTimeout(saveSettings,120);
+}
+
+function getSettingsPayload(){
+  return {
+    theme:currentTheme,
+    specMode,
+    dotSize:parseInt(document.getElementById('dotNumInline').value)||8,
+    dotCount:parseInt(document.getElementById('dotCountNumInline').value)||64,
+    pixelMode,
+    edgeStr:parseInt(document.getElementById('edgeStrSlider').value)||40,
+    ditherMode,
+    bayerSize,
+    ditherSpread:parseInt(document.getElementById('ditherSpreadSlider').value)||50,
+    palNum:parseInt(document.getElementById('palNumInline').value)||16,
+    gray:document.getElementById('grayToggle').checked,
+    weight:parseInt(document.getElementById('weightSlider').value)||4,
+    retroMode,
+    retroCount:{...retroCountVal},
+    retroBright:Math.round(retroBrightBias*100),
+    retroDeterministic,
+    customMode,
+    customCountVal2,
+    priorityColors:priorityColors.map(c=>[...c]),
+    exportScale,
+    exportAlg,
+    viewMode,
+    crt:{
+      enabled:document.getElementById('crtToggle').checked,
+      scanlines:document.getElementById('crtScanlines').checked,
+      bloom:document.getElementById('crtBloom').checked,
+      noise:document.getElementById('crtNoise').checked,
+      vignette:document.getElementById('crtVignette').checked,
+      aspect:document.getElementById('crtAspect').checked,
+      pceRes:document.querySelector('input[name="pceRes"]:checked')?.value || '256'
+    },
+    compareSliderPos,
+    customPaletteFull:customPaletteFull.map(c=>[...c])
+  };
+}
+
+function applySettingsPayload(payload,{reprocess=false}={}){
+  if(!payload) return;
+  clearTimeout(retroDebounce);
+  suppressAutoApply=true;
+  try{
+    switchTheme(payload.theme||'dark');
+    switchSpec(payload.specMode||'dotsize');
+    syncDotSize(payload.dotSize||8);
+    syncDotCount(payload.dotCount||64);
+    switchPixelMode(payload.pixelMode||'A');
+    document.getElementById('edgeStrSlider').value=payload.edgeStr ?? 40;
+    document.getElementById('edgeStrVal').textContent=(payload.edgeStr ?? 40)+'%';
+    switchDither(payload.ditherMode||'none');
+    switchBayerSize(payload.bayerSize||'4x4');
+    document.getElementById('ditherSpreadSlider').value=payload.ditherSpread ?? 50;
+    document.getElementById('ditherSpreadVal').textContent=(payload.ditherSpread ?? 50)+'%';
+    syncPal(payload.palNum||16);
+    document.getElementById('grayToggle').checked=!!payload.gray;
+    document.getElementById('weightSlider').value=payload.weight||4;
+    document.getElementById('weightVal').textContent=payload.weight||4;
+    priorityColors=(payload.priorityColors||[]).map(c=>[...c]);
+    renderPriorityList();
+    syncRetroDeterministic(!!payload.retroDeterministic);
+    switchRetroMode(payload.retroMode||'off');
+    if(payload.retroCount){
+      if(payload.retroCount.fc) syncRetroCount('FC',payload.retroCount.fc);
+      if(payload.retroCount.pce) syncRetroCount('PCE',payload.retroCount.pce);
+      if(payload.retroCount.pc98) syncRetroCount('PC98',payload.retroCount.pc98);
+    }
+    syncRetroBright(payload.retroBright ?? 0);
+    if(Array.isArray(payload.customPaletteFull) && payload.customPaletteFull.length){
+      setCustomPalette(payload.customPaletteFull.map(c=>[...c]));
+      if(!payload.customMode){
+        customMode=false;
+        document.getElementById('customPalToggle').checked=false;
+        updateRetroSharedControlsVisibility();
+        updateRetroNoteVisibility();
+      }
+    } else if(payload.customMode===false){
+      clearCustomPalette();
+    }
+    if(typeof payload.customCountVal2==='number') syncCustomCount(payload.customCountVal2);
+    document.getElementById('customPalToggle').checked=!!payload.customMode;
+    customMode=!!payload.customMode && customPaletteFull.length>0;
+    exportScale=payload.exportScale||3;
+    setExportScale(exportScale);
+    setExportAlg(payload.exportAlg||'nn');
+    document.getElementById('crtToggle').checked=!!payload.crt?.enabled;
+    document.getElementById('crtScanlines').checked=payload.crt?.scanlines ?? true;
+    document.getElementById('crtBloom').checked=payload.crt?.bloom ?? true;
+    document.getElementById('crtNoise').checked=!!payload.crt?.noise;
+    document.getElementById('crtVignette').checked=payload.crt?.vignette ?? true;
+    document.getElementById('crtAspect').checked=!!payload.crt?.aspect;
+    const pceRes=payload.crt?.pceRes || '256';
+    const radio=document.querySelector(`input[name="pceRes"][value="${pceRes}"]`);
+    if(radio) radio.checked=true;
+    compareSliderPos=Math.max(0,Math.min(100,payload.compareSliderPos ?? 50));
+    if(payload.viewMode) viewMode=payload.viewMode;
+  } finally {
+    suppressAutoApply=false;
+  }
+  updateRetroSharedControlsVisibility();
+  updateRetroNoteVisibility();
+  renderPriorityList();
+  setView(viewMode);
+  if(reprocess && origImg) process(true);
+  else applyUIState({rerender:true,refreshExport:true,refreshCRT:true});
+}
+
+function saveSettings(){
+  try{
+    localStorage.setItem(SETTINGS_STORAGE_KEY,JSON.stringify(getSettingsPayload()));
+    const meta=document.getElementById('shareMeta');
+    if(meta) meta.textContent='設定はブラウザに自動保存されています。';
+  } catch(_err){}
+}
+
+function restoreSavedSettingsSilently(){
+  try{
+    const raw=localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if(!raw) return false;
+    applySettingsPayload(JSON.parse(raw),{reprocess:false});
+    return true;
+  } catch(_err){
+    return false;
+  }
+}
+
+function rerollRandom(){
+  if(!origImg){
+    setStatus('先に画像を読み込んでください。','warn');
+    return;
+  }
+  if(retroDeterministic){
+    setStatus('再現性重視がONです。ランダム再生成するにはOFFにしてください。','warn');
+    return;
+  }
+  process(true);
+}
+
+function createHistoryThumbnailDataUrl(sourceCanvas){
+  const scale=Math.min(1,HISTORY_THUMB_SIZE/Math.max(sourceCanvas.width,sourceCanvas.height));
+  const thumb=document.createElement('canvas');
+  thumb.width=Math.max(1,Math.round(sourceCanvas.width*scale));
+  thumb.height=Math.max(1,Math.round(sourceCanvas.height*scale));
+  const ctx=thumb.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(sourceCanvas,0,0,thumb.width,thumb.height);
+  return thumb.toDataURL('image/webp',0.82);
+}
+
+function captureHistorySnapshot(){
+  if(!dotCanvas) return;
+  historySnapshots.unshift({
+    id:Date.now(),
+    preview:createHistoryThumbnailDataUrl(dotCanvas),
+    timestamp:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    settings:getSettingsPayload()
+  });
+  historySnapshots=historySnapshots.slice(0,SNAPSHOT_LIMIT);
+  renderHistorySnapshots();
+}
+
+function renderHistorySnapshots(){
+  const list=document.getElementById('historyList');
+  if(!list) return;
+  if(!historySnapshots.length){
+    list.innerHTML='<div class="history-empty">まだ履歴がありません。変換するとここに直近5件が並びます。</div>';
+    return;
+  }
+  list.innerHTML='';
+  historySnapshots.forEach((snap,index)=>{
+    const card=document.createElement('button');
+    card.className='history-card';
+    card.type='button';
+    card.onclick=()=>restoreSnapshot(index);
+    const img=document.createElement('img');
+    img.className='history-thumb';
+    img.src=snap.preview;
+    const meta=document.createElement('div');
+    meta.className='history-meta';
+    meta.innerHTML=`${snap.timestamp}<br>${snap.settings.pixelMode}/${snap.settings.palNum}色`;
+    card.appendChild(img);
+    card.appendChild(meta);
+    list.appendChild(card);
+  });
+}
+
+function restoreSnapshot(index){
+  const snap=historySnapshots[index];
+  if(!snap) return;
+  if(!origImg){
+    setStatus('履歴からの完全復元には元画像を読み込んだ状態が必要です。','warn');
+    return;
+  }
+  applySettingsPayload(snap.settings,{reprocess:!!origImg});
+  setStatus('履歴スナップショットを復元しました。','warn');
+}
 
 // ===== UPLOAD =====
 const dz=document.getElementById('dropzone');
@@ -822,17 +1498,33 @@ dz.addEventListener('drop',e=>{
 document.getElementById('imgInput').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0])});
 
 function loadFile(f){
+  if(!f.type.startsWith('image/')){
+    setStatus('画像ファイルを選択してください。PNG / JPG / GIF / WebP を推奨します。','error');
+    return;
+  }
   const r=new FileReader();
   r.onload=ev=>{
     const img=new Image();
     img.onload=()=>{
+      const pixels=img.width*img.height;
+      if(pixels>MAX_IMAGE_PIXELS){
+        setStatus(`画像サイズが大きすぎます。最大 ${Math.round(MAX_IMAGE_PIXELS/1000000)}MP 程度までにしてください。現在: ${img.width}×${img.height}`,'error');
+        return;
+      }
       origImg=img;
       dotCanvas=null;
+      currentPalette=[];
+      resetProcessingCaches();
       document.getElementById('dlBtn').disabled=true;
       document.getElementById('dlDotBtn').disabled=true;
       document.getElementById('paletteSection').style.display='none';
-      renderRow();
-      updateExportSection();
+      document.getElementById('sourceMeta').textContent=`${f.name} / ${img.width}×${img.height}`;
+      if(pixels>LARGE_IMAGE_PIXELS){
+        setStatus(`大きい画像を読み込みました (${img.width}×${img.height})。処理に時間がかかる場合は、ドット数や色数を下げると軽くなります。`,'warn');
+      } else {
+        setStatus('');
+      }
+      applyUIState({rerender:true,refreshExport:true,refreshCRT:true});
     };
     img.src=ev.target.result;
   };
@@ -842,6 +1534,20 @@ function loadFile(f){
 // ===== COLLAPSIBLE SECTIONS =====
 function toggleSection(id){
   document.getElementById(id).classList.toggle('collapsed');
+  if(id==='secPresets') syncPresetCardCompact();
+}
+
+function syncPresetCardCompact(){
+  const card=document.getElementById('presetFlowCard');
+  const sec=document.getElementById('secPresets');
+  const btn=document.getElementById('presetToggleBtn');
+  if(!card||!sec) return;
+  const collapsed=sec.classList.contains('collapsed');
+  card.classList.toggle('compact',collapsed);
+  if(btn){
+    btn.textContent=collapsed?'►':'▼';
+    btn.setAttribute('aria-label',collapsed?'プリセットを開く':'プリセットを閉じる');
+  }
 }
 
 // ===== SPEC SWITCH =====
@@ -851,6 +1557,8 @@ function switchSpec(m){
   document.getElementById('stDotCount').className='tab'+(m==='dotcount'?' active':'');
   document.getElementById('paneDotSize').style.display=m==='dotsize'?'':'none';
   document.getElementById('paneDotCount').style.display=m==='dotcount'?'':'none';
+  resetProcessingCaches();
+  queueReprocess();
 }
 
 function syncDotSize(v){
@@ -882,11 +1590,8 @@ function syncRetroCount(mode,v){
   // カウント表示を更新 (例: "20 / 54色")
   const disp=document.getElementById('retroCount'+mode+'Disp');
   if(disp)disp.textContent=v+' / '+mx+'色';
-  // 画像処理済みなら自動で再ドット化 (300ms debounce)
-  if(dotCanvas){
-    clearTimeout(retroDebounce);
-    retroDebounce=setTimeout(process,300);
-  }
+  resetProcessingCaches();
+  queueReprocess(180);
 }
 
 function syncRetroBright(v){
@@ -894,11 +1599,40 @@ function syncRetroBright(v){
   retroBrightBias=v/100;
   document.getElementById('retroBrightSlider').value=v;
   document.getElementById('retroBrightVal').textContent=(v>0?'+':'')+v;
-  const hint=v>10?'明るい色を優先してサンプリング。ランダム性あり。':
-             v<-10?'暗い色を優先してサンプリング。ランダム性あり。':
-             '標準。パレット全体から均等にサンプリング。';
-  document.getElementById('retroBrightHint').textContent=hint;
-  if(dotCanvas){clearTimeout(retroDebounce);retroDebounce=setTimeout(process,300);}
+  updateRetroSamplingHint();
+  resetProcessingCaches();
+  queueReprocess(180);
+}
+
+function syncRetroDeterministic(checked){
+  retroDeterministic=!!checked;
+  const toggle=document.getElementById('retroDeterministicToggle');
+  if(toggle) toggle.checked=retroDeterministic;
+  updateRetroSamplingHint();
+  resetProcessingCaches();
+  queueReprocess(180);
+}
+
+function updateRetroSamplingHint(){
+  const hintEl=document.getElementById('retroBrightHint');
+  if(!hintEl) return;
+  let tone='標準の量子化です。';
+  if(retroMode!=='off' || customMode){
+    tone='標準。パレット全体から均等にサンプリング。';
+    if(retroBrightBias>0.1) tone='明るい色を優先してサンプリングします。';
+    else if(retroBrightBias<-0.1) tone='暗い色を優先してサンプリングします。';
+  }
+  hintEl.textContent=retroDeterministic
+    ? tone+' 再現性重視のため、同じ入力では同じ結果になります。'
+    : tone+' ランダム性を残すため、毎回わずかに結果が変わることがあります。';
+}
+
+function updateRetroSharedControlsVisibility(){
+  const shared=document.getElementById('retroSharedControls');
+  const brightRow=document.getElementById('retroBrightRow');
+  if(shared) shared.style.display='';
+  if(brightRow) brightRow.style.display=(retroMode!=='off' || customMode)?'flex':'none';
+  updateRetroSamplingHint();
 }
 
 // ===== SPIN HELPERS =====
@@ -918,7 +1652,7 @@ function togglePick(){
     btn.textContent='スポイト';btn.className='btn pick-btn';
     hint.textContent='スポイトを有効にして原画をクリックすると色を登録できる。複数登録可能。';
   }
-  renderRow();
+  applyUIState({rerender:true,refreshCRT:true});
 }
 
 function clearAll(){
@@ -929,7 +1663,9 @@ function clearAll(){
     document.getElementById('eyedropBtn').className='btn pick-btn';
     document.getElementById('pickHint').textContent='スポイトを有効にして原画をクリックすると色を登録できる。複数登録可能。';
   }
-  renderPriorityList();renderRow();
+  renderPriorityList();
+  resetProcessingCaches();
+  applyUIState({rerender:true,refreshCRT:true,reprocess:!!dotCanvas});
 }
 
 function pickColor(e){
@@ -942,6 +1678,8 @@ function pickColor(e){
   const px=tmp.getContext('2d').getImageData(Math.floor(sx),Math.floor(sy),1,1).data;
   priorityColors.push([px[0],px[1],px[2]]);
   renderPriorityList();
+  resetProcessingCaches();
+  queueReprocess(180);
 }
 
 function renderPriorityList(){
@@ -954,7 +1692,7 @@ function renderPriorityList(){
     const dot=document.createElement('div');dot.className='priority-dot';dot.style.background=`rgb(${c[0]},${c[1]},${c[2]})`;
     const label=document.createElement('span');label.textContent='#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');
     const x=document.createElement('span');x.className='priority-x';x.textContent='×';
-    x.onclick=()=>{priorityColors.splice(i,1);renderPriorityList()};
+    x.onclick=()=>{priorityColors.splice(i,1);renderPriorityList();resetProcessingCaches();queueReprocess(180);};
     chip.appendChild(dot);chip.appendChild(label);chip.appendChild(x);list.appendChild(chip);
   });
 }
@@ -962,11 +1700,30 @@ function renderPriorityList(){
 // ===== VIEW =====
 function setView(v){
   viewMode=v;
-  ['both','orig','dot','export'].forEach(id=>{
+  ['both','slider','orig','dot','export'].forEach(id=>{
     const btn=document.getElementById('btn'+id.charAt(0).toUpperCase()+id.slice(1));
     if(btn)btn.className='tab'+(viewMode===id?' active':'');
   });
-  renderRow();
+  applyUIState({rerender:true,refreshCRT:true});
+}
+
+function setCompareSlider(v){
+  compareSliderPos=Math.max(0,Math.min(100,parseInt(v)||0));
+  if(viewMode==='slider') updateCompareSliderUI();
+  scheduleSettingsSave();
+}
+
+function updateCompareSliderUI(){
+  const overlay=document.getElementById('compareOverlay');
+  const divider=document.getElementById('compareDivider');
+  const handle=document.getElementById('compareHandle');
+  const label=document.getElementById('compareValueLabel');
+  const slider=document.getElementById('compareRange');
+  if(overlay) overlay.style.clipPath=`inset(0 ${100-compareSliderPos}% 0 0)`;
+  if(divider) divider.style.marginLeft=`calc(${compareSliderPos}% - 1px)`;
+  if(handle) handle.style.marginLeft=`calc(${compareSliderPos}% - 10px)`;
+  if(label) label.textContent=compareSliderPos+'%';
+  if(slider && slider.value!==String(compareSliderPos)) slider.value=String(compareSliderPos);
 }
 
 function renderRow(){
@@ -980,24 +1737,65 @@ function renderRow(){
   }
 
   if(viewMode==='export'){
-    const {w:srcW,h:srcH}=getExportBase();
-    const outW=Math.max(1,parseInt(document.getElementById('exportW').value)||Math.round(srcW*exportScale));
-    const outH=Math.max(1,parseInt(document.getElementById('exportH').value)||Math.round(srcH*exportScale));
-    const src=document.createElement('canvas');src.width=srcW;src.height=srcH;
-    const sctx=src.getContext('2d');
-    if(dotCanvas){sctx.imageSmoothingEnabled=false;sctx.drawImage(dotCanvas,0,0,srcW,srcH);}
-    else{sctx.drawImage(origImg,0,0);}
-    const out=document.createElement('canvas');out.width=outW;out.height=outH;
-    const octx=out.getContext('2d');
-    if(exportAlg==='nn'){octx.imageSmoothingEnabled=false;}
-    else{octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';}
-    octx.drawImage(src,0,0,outW,outH);
+    const out=getExportPreviewCanvas();
+    const outW=out.width, outH=out.height;
     const wrap=document.createElement('div');wrap.className='canvas-wrap';
     const title=document.createElement('div');title.className='canvas-title';
     title.textContent='EXPORT PREVIEW — '+outW+'×'+outH+' / '+exportAlg.toUpperCase();
     wrap.appendChild(title);
     out.style.cssText='display:block;width:100%;'+(exportAlg==='nn'?'image-rendering:pixelated;':'image-rendering:auto;');
     wrap.appendChild(out);
+    row.appendChild(wrap);
+    return;
+  }
+
+  if(viewMode==='slider'){
+    if(!dotCanvas){
+      const wrap=document.createElement('div');wrap.className='canvas-wrap';
+      wrap.innerHTML='<div class="canvas-empty">先にドット化してください</div>';
+      row.appendChild(wrap);
+      return;
+    }
+    const wrap=document.createElement('div');wrap.className='canvas-wrap';
+    wrap.style.gridColumn='1/-1';
+    const title=document.createElement('div');title.className='canvas-title';
+    title.textContent='BEFORE / AFTER SLIDER';
+    wrap.appendChild(title);
+    const stage=document.createElement('div');
+    stage.className='compare-stage';
+    const base=document.createElement('canvas');
+    base.className='compare-base';
+    base.width=origImg.width;base.height=origImg.height;
+    base.getContext('2d').drawImage(origImg,0,0);
+    const overlay=document.createElement('canvas');
+    overlay.className='compare-layer compare-overlay';
+    overlay.id='compareOverlay';
+    overlay.width=dotCanvas.width;overlay.height=dotCanvas.height;
+    overlay.getContext('2d').drawImage(dotCanvas,0,0);
+    overlay.style.clipPath=`inset(0 ${100-compareSliderPos}% 0 0)`;
+    const divider=document.createElement('div');
+    divider.className='compare-divider';
+    divider.id='compareDivider';
+    divider.style.marginLeft=`calc(${compareSliderPos}% - 1px)`;
+    const handle=document.createElement('div');
+    handle.className='compare-handle';
+    handle.id='compareHandle';
+    handle.style.marginLeft=`calc(${compareSliderPos}% - 10px)`;
+    stage.appendChild(base);
+    stage.appendChild(overlay);
+    stage.appendChild(divider);
+    stage.appendChild(handle);
+    wrap.appendChild(stage);
+    const controls=document.createElement('div');
+    controls.className='compare-slider-wrap';
+    controls.innerHTML=`<div class="label-row">比較比率 <span class="val" id="compareValueLabel">${compareSliderPos}%</span></div>`;
+    const slider=document.createElement('input');
+    slider.id='compareRange';
+    slider.type='range';
+    slider.min='0'; slider.max='100'; slider.value=String(compareSliderPos); slider.step='1';
+    slider.oninput=()=>setCompareSlider(slider.value);
+    controls.appendChild(slider);
+    wrap.appendChild(controls);
     row.appendChild(wrap);
     return;
   }
@@ -1029,17 +1827,25 @@ function renderRow(){
     sizeLabel.style.cssText='font-size:10px;color:var(--text3);font-family:"Space Mono",monospace;text-align:right;margin-bottom:2px';
     sizeLabel.textContent=dotCanvas.width+'×'+dotCanvas.height+' ('+sw+'×'+sh+' dots)';
     wrap.appendChild(sizeLabel);
+    const stage=document.createElement('div');
+    stage.id='dotCanvasStage';
+    stage.style.cssText='display:grid;place-items:center;min-height:0;overflow:hidden;width:100%;position:relative;isolation:isolate;';
     const c2=document.createElement('canvas');c2.width=dotCanvas.width;c2.height=dotCanvas.height;
+    c2.id='dotDisplayCanvas';
     c2.getContext('2d').drawImage(dotCanvas,0,0);
     c2.style.imageRendering='pixelated';
-    wrap.appendChild(c2);
+    c2.style.gridArea='1/1';
+    c2.style.zIndex='1';
+    stage.appendChild(c2);
+    wrap.appendChild(stage);
     row.appendChild(wrap);
-    applyCRTToCanvas(c2,wrap);
   } else if(viewMode==='dot'&&!dotCanvas){
     const wrap=document.createElement('div');wrap.className='canvas-wrap';
     wrap.innerHTML='<div class="canvas-empty">先にドット化してください</div>';
     row.appendChild(wrap);
   }
+
+  updateCRTOverlay();
 }
 
 // ===== CORE PROCESSING =====
@@ -1056,8 +1862,13 @@ function getSmallSize(){
 
 function colorDist(a,b){return(a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2}
 
-function process(){
+function process(force=false){
   if(!origImg){alert('画像を読み込んでください！');return}
+  const signature=getProcessingSignature();
+  if(!force && signature===lastProcessSignature && dotCanvas){
+    applyUIState({rerender:true,refreshExport:true,refreshCRT:true});
+    return;
+  }
   const [sw,sh]=getSmallSize();
   const gray=document.getElementById('grayToggle').checked;
   const palN=Math.max(2,parseInt(document.getElementById('palNumInline').value)||16);
@@ -1078,13 +1889,13 @@ function process(){
   // Choose palette
   let palette;
   if(customMode&&customPaletteFull.length>0){
-    palette=reduceRetroKMeans(data,customPaletteFull,customCountVal2,0);
+    palette=reduceRetroKMeans(data,customPaletteFull,customCountVal2,0,10,retroDeterministic);
   } else if(retroMode==='off'){
-    palette=quantizeWithPriority(data,palN,priorityColors,weight);
+    palette=quantizeWithPriority(data,palN,priorityColors,weight,retroDeterministic);
   } else {
     const fullPal=getRetroPalette();
     const n=Math.max(2,retroCountVal[retroMode]||32);
-    palette=reduceRetroKMeans(data,fullPal,n,retroBrightBias);
+    palette=reduceRetroKMeans(data,fullPal,n,retroBrightBias,10,retroDeterministic);
   }
 
   if(pixelMode==='A'){
@@ -1098,15 +1909,19 @@ function process(){
   const out=document.createElement('canvas');out.width=origImg.width;out.height=origImg.height;
   const octx=out.getContext('2d');octx.imageSmoothingEnabled=false;
   octx.drawImage(small,0,0,out.width,out.height);
+  processedSmallCanvas=small;
   dotCanvas=out;
+  currentPalette=palette;
+  exportPreviewCache=null;
+  lastProcessSignature=signature;
   showPaletteUI(palette);
-  renderRow();
   document.getElementById('dlBtn').disabled=false;
   document.getElementById('dlDotBtn').disabled=false;
-  updateExportSection();
+  captureHistorySnapshot();
+  applyUIState({rerender:true,refreshExport:true,refreshCRT:true});
 }
 
-function quantizeWithPriority(data,n,pColors,weight){
+function quantizeWithPriority(data,n,pColors,weight,deterministic=false){
   const d=data.data, np=d.length>>2;
   if(!np)return[[0,0,0]];
   // ① サブサンプリング：最大4096ピクセルで k-means（整数パッキングで高速化）
@@ -1124,7 +1939,17 @@ function quantizeWithPriority(data,n,pColors,weight){
   pColors.forEach(pc=>{
     if(clusters.length<n){const k=(pc[0]<<16)|(pc[1]<<8)|pc[2];if(!seen.has(k)){seen.add(k);clusters.push([...pc]);}}
   });
-  const pool=[...new Set(sample)].sort(()=>Math.random()-.5);
+  const freq=new Map();
+  sample.forEach(k=>freq.set(k,(freq.get(k)||0)+1));
+  let pool=[...freq.entries()]
+    .sort((a,b)=>b[1]-a[1] || a[0]-b[0])
+    .map(([k])=>k);
+  if(!deterministic){
+    for(let i=pool.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [pool[i],pool[j]]=[pool[j],pool[i]];
+    }
+  }
   for(const k of pool){
     if(clusters.length>=n)break;
     if(!seen.has(k)){seen.add(k);clusters.push([(k>>16)&255,(k>>8)&255,k&255]);}
@@ -1199,27 +2024,33 @@ function switchPixelMode(m){
   document.getElementById('pmTabB').className='tab'+(m==='B'?' active':'');
   document.getElementById('pmPaneA').style.display=m==='A'?'':'none';
   document.getElementById('pmPaneB').style.display=m==='B'?'':'none';
+  resetProcessingCaches();
+  queueReprocess();
 }
 
 const DITHER_HINTS={
   none:'ディザリングなし。パレット色に直接スナップ。',
-  ordered:'Bayerマトリクスによる規則的なディザリング。ドット絵らしさを保つ。',
   fs:'Floyd-Steinbergによる誤差拡散。グラデーションが滑らか。',
-  bayer:'Bayerパターンディザリング。4×4または8×8行列で規則的なドットパターンを生成。'
+  bayer:'Bayerパターンによる規則的なディザリング。4×4は素直、8×8は模様感を強めやすい。'
 };
 function switchDither(m){
+  if(m==='ordered') m='bayer';
   ditherMode=m;
-  ['None','Ordered','FS','Bayer'].forEach(n=>{
+  ['None','Bayer','FS'].forEach(n=>{
     document.getElementById('dither'+n).className='tab'+(ditherMode===n.toLowerCase()?' active-blue':'');
   });
   document.getElementById('ditherHint').textContent=DITHER_HINTS[m];
   document.getElementById('ditherBayerOpts').style.display=(m==='bayer')?'block':'none';
-  document.getElementById('ditherSpreadRow').style.display=(m==='ordered'||m==='bayer')?'block':'none';
+  document.getElementById('ditherSpreadRow').style.display=(m==='bayer')?'block':'none';
+  resetProcessingCaches();
+  queueReprocess();
 }
 function switchBayerSize(s){
   bayerSize=s;
   document.getElementById('bayer4tab').className='tab'+(s==='4x4'?' active-blue':'');
   document.getElementById('bayer8tab').className='tab'+(s==='8x8'?' active-blue':'');
+  resetProcessingCaches();
+  queueReprocess();
 }
 
 // ===== SMART MODE PROCESSING =====
@@ -1269,9 +2100,6 @@ function processSmartMode(ctx,data,sw,sh,palette,edgeStr,dither){
 
   if(dither==='none'){
     mapToPalette(data,palette);
-  } else if(dither==='ordered'){
-    const spread=parseInt(document.getElementById('ditherSpreadSlider').value)/100*48;
-    applyOrderedDither(data,sw,sh,palette,spread);
   } else if(dither==='bayer'){
     const spread=parseInt(document.getElementById('ditherSpreadSlider').value)/100*48;
     applyBayerDither(data,sw,sh,palette,bayerSize,spread);
@@ -1281,7 +2109,6 @@ function processSmartMode(ctx,data,sw,sh,palette,edgeStr,dither){
   ctx.putImageData(data,0,0);
 }
 
-// Bayer 4×4 ordered dithering
 const BAYER4=[
   [ 0, 8, 2,10],
   [12, 4,14, 6],
@@ -1298,21 +2125,6 @@ const BAYER8=[
   [15,47, 7,39,13,45, 5,37],
   [63,31,55,23,61,29,53,21]
 ];
-function applyOrderedDither(data,w,h,palette,spread=24){
-  const d=data.data;
-  for(let y=0;y<h;y++){
-    for(let x=0;x<w;x++){
-      const t=(BAYER4[y%4][x%4]/16-0.5)*spread;
-      const i=(y*w+x)*4;
-      const r=Math.max(0,Math.min(255,d[i  ]+t));
-      const g=Math.max(0,Math.min(255,d[i+1]+t));
-      const b=Math.max(0,Math.min(255,d[i+2]+t));
-      let bi=0,bd=Infinity;
-      palette.forEach((c,j)=>{const dist=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;if(dist<bd){bd=dist;bi=j}});
-      d[i]=palette[bi][0];d[i+1]=palette[bi][1];d[i+2]=palette[bi][2];
-    }
-  }
-}
 function applyBayerDither(data,w,h,palette,size,spread){
   const d=data.data;
   const matrix=size==='8x8'?BAYER8:BAYER4;
@@ -1404,22 +2216,66 @@ function getRetroPalette(){
   return null;
 }
 
-// レトロパレットに制約したk-means（毎回ランダム初期化→結果が変わる）
-function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10){
+function createRandomRetroCenters(fullPal,n,brightBias){
+  const scale=brightBias*3;
+  const scored=fullPal.map((c,i)=>{
+    const lum=(0.299*c[0]+0.587*c[1]+0.114*c[2])/255;
+    return {
+      i,
+      score:Math.random()*Math.exp(scale*lum)
+    };
+  }).sort((a,b)=>b.score-a.score || a.i-b.i);
+  return scored.slice(0,n).map(({i})=>[...fullPal[i]]);
+}
+
+function createDeterministicRetroCenters(fullPal,sample,n,brightBias){
+  const mean=sample.reduce((acc,[r,g,b])=>{acc[0]+=r;acc[1]+=g;acc[2]+=b;return acc;},[0,0,0]).map(v=>v/Math.max(sample.length,1));
+  const targetLum=Math.max(0,Math.min(1,((0.299*mean[0]+0.587*mean[1]+0.114*mean[2])/255)+(brightBias*0.18)));
+  const chosen=new Set();
+  const firstIdx=[...Array(fullPal.length).keys()].sort((a,b)=>{
+    const la=(0.299*fullPal[a][0]+0.587*fullPal[a][1]+0.114*fullPal[a][2])/255;
+    const lb=(0.299*fullPal[b][0]+0.587*fullPal[b][1]+0.114*fullPal[b][2])/255;
+    const da=(mean[0]-fullPal[a][0])**2+(mean[1]-fullPal[a][1])**2+(mean[2]-fullPal[a][2])**2+((la-targetLum)**2*8000);
+    const db=(mean[0]-fullPal[b][0])**2+(mean[1]-fullPal[b][1])**2+(mean[2]-fullPal[b][2])**2+((lb-targetLum)**2*8000);
+    return da-db || a-b;
+  })[0];
+  chosen.add(firstIdx);
+  const centers=[[...fullPal[firstIdx]]];
+  while(centers.length<n){
+    let bestIdx=-1,bestScore=-1;
+    for(let i=0;i<fullPal.length;i++){
+      if(chosen.has(i)) continue;
+      const lum=(0.299*fullPal[i][0]+0.587*fullPal[i][1]+0.114*fullPal[i][2])/255;
+      let minDist=Infinity;
+      for(const c of centers){
+        const dist=(fullPal[i][0]-c[0])**2+(fullPal[i][1]-c[1])**2+(fullPal[i][2]-c[2])**2;
+        if(dist<minDist) minDist=dist;
+      }
+      const biasBoost=1+Math.max(-0.35,Math.min(0.35,brightBias))*((lum-targetLum)>=0?1:-1);
+      const score=minDist*biasBoost;
+      if(score>bestScore || (score===bestScore && i<bestIdx)){
+        bestScore=score;
+        bestIdx=i;
+      }
+    }
+    if(bestIdx<0) break;
+    chosen.add(bestIdx);
+    centers.push([...fullPal[bestIdx]]);
+  }
+  return centers;
+}
+
+// レトロパレットに制約した k-means。通常はランダム性を残し、必要時のみ再現性重視にする。
+function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10,deterministic=false){
   if(n>=fullPal.length) return [...fullPal];
   const d=data.data, np=d.length>>2;
   // ① サブサンプリング（最大4096ピクセル）
   const MAX=4096, step=np>MAX?Math.ceil(np/MAX):1;
   const sample=[];
   for(let i=0;i<np;i+=step) sample.push([d[i*4],d[i*4+1],d[i*4+2]]);
-  // ② 明るさバイアス付きランダム初期化
-  const scale=brightBias*3;
-  const scores=fullPal.map(c=>{
-    const lum=(0.299*c[0]+0.587*c[1]+0.114*c[2])/255;
-    return Math.random()*Math.exp(scale*lum);
-  });
-  const sortedIdx=[...Array(fullPal.length).keys()].sort((a,b)=>scores[b]-scores[a]);
-  let centers=sortedIdx.slice(0,n).map(i=>[...fullPal[i]]);
+  let centers=deterministic
+    ? createDeterministicRetroCenters(fullPal,sample,n,brightBias)
+    : createRandomRetroCenters(fullPal,n,brightBias);
   // ③ k-means（サンプルデータのみ）
   for(let iter=0;iter<iters;iter++){
     const sums=centers.map(()=>[0,0,0,0]);
@@ -1459,21 +2315,19 @@ function switchRetroMode(m){
     if(el) el.style.display=m===n.toLowerCase()?'':'none';
   });
   // 明るさ共有コントロール
-  const shared=document.getElementById('retroSharedControls');
-  if(shared) shared.style.display=(m!=='off')?'':'none';
+  updateRetroSharedControlsVisibility();
   // カスタムモードと排他
   if(m!=='off'){customMode=false;document.getElementById('customPalToggle').checked=false;}
   // レトロモード時はカラー設定セクションにノート表示
   updateRetroNoteVisibility();
-  // CRTのPCE解像度トグル表示更新
-  updateCRT();
+  updateRetroSharedControlsVisibility();
+  resetProcessingCaches();
+  applyUIState({reprocess:!!origImg&&!!dotCanvas,rerender:true,refreshExport:true,refreshCRT:true});
 }
 
 
 
 // ===== CRT FILTER =====
-let crtAnimId=null;
-
 function getCRTAspectScale(){
   // 非正方形px: FC=8:7固定, PCE=256モード→8:7 / 320モード→1:1
   if(!document.getElementById('crtAspect').checked) return 1;
@@ -1486,61 +2340,104 @@ function getCRTAspectScale(){
 }
 
 function updateCRT(){
-  // PCE解像度トグル表示制御（非正方形px有効 && PCEモード時のみ）
+  if(dotCanvas && (viewMode==='both' || viewMode==='dot')){
+    applyUIState({rerender:true,refreshCRT:true});
+    return;
+  }
+  applyUIState({refreshCRT:true});
+}
+
+function updateCRTOverlay(){
   const aspectOn=document.getElementById('crtAspect').checked;
   const pceWrap=document.getElementById('pceResWrap');
   pceWrap.style.display=(aspectOn&&retroMode==='pce')?'flex':'none';
 
   if(crtAnimId){cancelAnimationFrame(crtAnimId);crtAnimId=null;}
-  renderRow(); // re-render with/without CRT
-}
+  const srcCanvas=document.getElementById('dotDisplayCanvas');
+  const stage=document.getElementById('dotCanvasStage');
+  if(!srcCanvas||!stage) return;
 
-function applyCRTToCanvas(srcCanvas,wrap){
   const enabled=document.getElementById('crtToggle').checked;
-  if(!enabled) return;
-
-  const scanlines=document.getElementById('crtScanlines').checked;
-  const bloom=document.getElementById('crtBloom').checked;
-  const noise=document.getElementById('crtNoise').checked;
-  const vignette=document.getElementById('crtVignette').checked;
   const scale=getCRTAspectScale();
-
-  // ① wrap の構造を flex 列に変更し、inner で srcCanvas + overlay をグリッド重ね表示
-  //    wrap > [title, sizeLabel, inner(grid) > [srcCanvas, ov]]
-  //    grid-area:1/1 で2枚を同セルに重ね、place-items:center で縦中央揃え
   const arW=srcCanvas.width*scale;
   const arH=srcCanvas.height;
-
-  wrap.removeChild(srcCanvas);
-  wrap.style.display='flex';
-  wrap.style.flexDirection='column';
-
-  const inner=document.createElement('div');
-  inner.style.cssText='flex:1;display:grid;place-items:center;min-height:0;overflow:hidden;width:100%;position:relative;';
-
-  // srcCanvas のCSSサイズ (aspect-ratio で縦横比を保ちながら横いっぱい)
-  srcCanvas.style.gridArea='1/1';
   srcCanvas.style.width='100%';
   srcCanvas.style.height='auto';
-  if(scale!==1) srcCanvas.style.aspectRatio=arW+'/'+arH;
+  srcCanvas.style.aspectRatio=scale!==1?(arW+'/'+arH):'auto';
+  srcCanvas.style.justifySelf='center';
+  srcCanvas.style.alignSelf='center';
 
-  inner.appendChild(srcCanvas);
-
-  // ② overlay canvas — srcCanvas と同セルに重ね、同サイズにする
-  const ov=document.createElement('canvas');
-  ov.className='crt-canvas';
+  let ov=document.getElementById('crtOverlayCanvas');
+  if(!enabled){
+    if(ov) ov.remove();
+    return;
+  }
+  if(!ov){
+    ov=document.createElement('canvas');
+    ov.id='crtOverlayCanvas';
+    ov.className='crt-canvas';
+    stage.appendChild(ov);
+  }
   ov.width=srcCanvas.width; ov.height=srcCanvas.height;
   ov.style.gridArea='1/1';
   ov.style.width='100%';
   ov.style.height='auto';
-  if(scale!==1) ov.style.aspectRatio=arW+'/'+arH;
+  ov.style.aspectRatio=scale!==1?(arW+'/'+arH):'auto';
   ov.style.pointerEvents='none';
-  inner.appendChild(ov);
-
-  wrap.appendChild(inner);
+  ov.style.justifySelf='center';
+  ov.style.alignSelf='center';
 
   const W=ov.width, H=ov.height;
   const ctx=ov.getContext('2d');
+  const scanlines=document.getElementById('crtScanlines').checked;
+  const bloom=document.getElementById('crtBloom').checked;
+  const noise=document.getElementById('crtNoise').checked;
+  const vignette=document.getElementById('crtVignette').checked;
+  let bloomLayer=null;
+
+  if(bloom){
+    const srcData=srcCanvas.getContext('2d').getImageData(0,0,W,H).data;
+    const bright=document.createElement('canvas');
+    bright.width=W;
+    bright.height=H;
+    const brightCtx=bright.getContext('2d');
+    const brightImg=brightCtx.createImageData(W,H);
+
+    for(let i=0;i<srcData.length;i+=4){
+      const lum=srcData[i]*.299+srcData[i+1]*.587+srcData[i+2]*.114;
+      if(lum<150) continue;
+      const boost=Math.min(1,(lum-150)/105);
+      brightImg.data[i]=Math.min(255,srcData[i] + 35*boost);
+      brightImg.data[i+1]=Math.min(255,srcData[i+1] + 35*boost);
+      brightImg.data[i+2]=Math.min(255,srcData[i+2] + 35*boost);
+      brightImg.data[i+3]=Math.round(110*boost);
+    }
+    brightCtx.putImageData(brightImg,0,0);
+
+    const blurA=document.createElement('canvas');
+    blurA.width=W;
+    blurA.height=H;
+    const blurACtx=blurA.getContext('2d');
+    blurACtx.filter='blur(2px)';
+    blurACtx.drawImage(bright,0,0);
+
+    const blurB=document.createElement('canvas');
+    blurB.width=W;
+    blurB.height=H;
+    const blurBCtx=blurB.getContext('2d');
+    blurBCtx.filter='blur(5px)';
+    blurBCtx.drawImage(bright,0,0);
+
+    bloomLayer=document.createElement('canvas');
+    bloomLayer.width=W;
+    bloomLayer.height=H;
+    const bloomCtx=bloomLayer.getContext('2d');
+    bloomCtx.globalCompositeOperation='screen';
+    bloomCtx.globalAlpha=0.85;
+    bloomCtx.drawImage(blurA,0,0);
+    bloomCtx.globalAlpha=0.45;
+    bloomCtx.drawImage(blurB,0,0);
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);
@@ -1553,27 +2450,13 @@ function applyCRTToCanvas(srcCanvas,wrap){
       }
     }
 
-    // 滲み（輝度の高いピクセルに薄くグロー）
-    if(bloom){
-      const src=srcCanvas.getContext('2d').getImageData(0,0,W,H).data;
-      const bd=ctx.getImageData(0,0,W,H);
-      for(let y=1;y<H-1;y++){
-        for(let x=1;x<W-1;x++){
-          const i=(y*W+x)*4;
-          const lum=src[i]*.299+src[i+1]*.587+src[i+2]*.114;
-          if(lum>180){
-            // 周辺4ピクセルの平均を薄く乗算
-            const spread=((lum-180)/75); // 0〜1
-            const alpha=Math.round(spread*18); // 最大18 (弱め)
-            const oi=i;
-            bd.data[oi]=Math.min(255,bd.data[oi]+Math.round(src[i]*spread*0.15));
-            bd.data[oi+1]=Math.min(255,bd.data[oi+1]+Math.round(src[i+1]*spread*0.15));
-            bd.data[oi+2]=Math.min(255,bd.data[oi+2]+Math.round(src[i+2]*spread*0.15));
-            bd.data[oi+3]=Math.min(255,alpha);
-          }
-        }
-      }
-      ctx.putImageData(bd,0,0);
+    // 滲み（事前生成した glow レイヤーを screen 合成）
+    if(bloom && bloomLayer){
+      ctx.save();
+      ctx.globalCompositeOperation='screen';
+      ctx.globalAlpha=0.8;
+      ctx.drawImage(bloomLayer,0,0);
+      ctx.restore();
     }
 
     // ノイズ
@@ -1623,13 +2506,15 @@ function updateExportSection() {
   const base = getExportBase();
   document.getElementById('exportSrcLabel').textContent = 'ソース: ' + base.label;
   updateExportSizeFromScale();
+  exportPreviewCache=null;
 }
 
 function setExportScale(s) {
   exportScale = s;
   updateExportSizeFromScale();
   updateScaleBtnUI();
-  if(viewMode==='export') renderRow();
+  exportPreviewCache=null;
+  applyUIState({rerender:viewMode==='export'});
 }
 
 function updateExportSizeFromScale() {
@@ -1654,7 +2539,8 @@ function onExportSizeChange(axis) {
     wEl.value = Math.round(bw * exportScale);
   }
   updateScaleBtnUI();
-  if(viewMode==='export') renderRow();
+  exportPreviewCache=null;
+  applyUIState({rerender:viewMode==='export'});
 }
 
 function updateScaleBtnUI() {
@@ -1674,7 +2560,27 @@ function setExportAlg(alg) {
   document.getElementById('algNN').className = 'tab' + (alg === 'nn' ? ' active' : '');
   document.getElementById('algBilinear').className = 'tab' + (alg === 'bilinear' ? ' active' : '');
   document.getElementById('exportAlgHint').textContent = EXPORT_ALG_HINTS[alg];
-  if(viewMode==='export') renderRow();
+  exportPreviewCache=null;
+  applyUIState({rerender:viewMode==='export'});
+}
+
+function getExportPreviewCanvas() {
+  const {w:srcW,h:srcH}=getExportBase();
+  const outW=Math.max(1,parseInt(document.getElementById('exportW').value)||Math.round(srcW*exportScale));
+  const outH=Math.max(1,parseInt(document.getElementById('exportH').value)||Math.round(srcH*exportScale));
+  const key=[srcW,srcH,outW,outH,exportAlg,!!dotCanvas,lastProcessSignature].join('|');
+  if(exportPreviewCache&&exportPreviewCache.key===key) return exportPreviewCache.canvas;
+  const src=document.createElement('canvas');src.width=srcW;src.height=srcH;
+  const sctx=src.getContext('2d');
+  if(dotCanvas){sctx.imageSmoothingEnabled=false;sctx.drawImage(dotCanvas,0,0,srcW,srcH);}
+  else{sctx.drawImage(origImg,0,0);}
+  const out=document.createElement('canvas');out.width=outW;out.height=outH;
+  const octx=out.getContext('2d');
+  if(exportAlg==='nn'){octx.imageSmoothingEnabled=false;}
+  else{octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';}
+  octx.drawImage(src,0,0,outW,outH);
+  exportPreviewCache={key,canvas:out};
+  return out;
 }
 
 function downloadExport() {
@@ -1725,7 +2631,9 @@ function toggleCustomMode(){
   customMode=document.getElementById('customPalToggle').checked;
   if(customMode&&retroMode!=='off') switchRetroMode('off');
   updateRetroNoteVisibility();
-  if(dotCanvas) process();
+  updateRetroSharedControlsVisibility();
+  resetProcessingCaches();
+  applyUIState({reprocess:!!origImg&&!!dotCanvas,refreshExport:true,refreshCRT:true});
 }
 
 function loadHexFile(input){
@@ -1734,12 +2642,20 @@ function loadHexFile(input){
   reader.onload=e=>{
     const lines=e.target.result.split(/\r?\n/);
     const colors=[];
+    const invalid=[];
     for(const line of lines){
       const hex=line.trim().replace(/^#/,'');
+      if(!hex) continue;
       if(/^[0-9a-fA-F]{6}$/.test(hex))
         colors.push([parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)]);
+      else invalid.push(line.trim());
     }
-    if(!colors.length){alert('有効な色が見つかりませんでした。');return;}
+    if(!colors.length){setStatus('HEX ファイルから有効な色を読み込めませんでした。1行につき `#RRGGBB` または `RRGGBB` 形式で指定してください。','error');return;}
+    if(invalid.length){
+      setStatus(`一部の行をスキップしました。HEX は 6 桁のみ対応です。読み込み成功: ${colors.length} 色 / 無効: ${invalid.length} 行`,'warn');
+    } else {
+      setStatus(`HEX パレットを読み込みました。${colors.length} 色を使用できます。`,'warn');
+    }
     setCustomPalette(colors);
   };
   reader.readAsText(file);
@@ -1752,18 +2668,24 @@ function loadPaletteImage(input){
   reader.onload=e=>{
     const img=new Image();
     img.onload=()=>{
+      const pixels=img.width*img.height;
+      if(pixels>MAX_PALETTE_IMAGE_PIXELS){
+        setStatus(`パレット画像が大きすぎます。${Math.round(MAX_PALETTE_IMAGE_PIXELS/10000)/100}MP 以下を推奨します。現在: ${img.width}×${img.height}`,'error');
+        return;
+      }
       const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
       const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
       const d=ctx.getImageData(0,0,img.width,img.height).data;
       const np=d.length>>2;
-      const step=np>2048?Math.ceil(np/2048):1;
+      const step=np>MAX_PALETTE_SAMPLES?Math.ceil(np/MAX_PALETTE_SAMPLES):1;
       const seen=new Set(),colors=[];
       for(let i=0;i<np;i+=step){
         if(d[i*4+3]<128) continue;
         const key=(d[i*4]<<16)|(d[i*4+1]<<8)|d[i*4+2];
         if(!seen.has(key)){seen.add(key);colors.push([d[i*4],d[i*4+1],d[i*4+2]]);}
       }
-      if(!colors.length){alert('有効な色が見つかりませんでした。');return;}
+      if(!colors.length){setStatus('パレット画像から有効な不透明色を取得できませんでした。透明部分が多い場合は別画像を試してください。','error');return;}
+      setStatus(`パレット画像を読み込みました。最大 ${MAX_PALETTE_SAMPLES} サンプルで抽出しているため、極端に大きい画像では一部色を間引く場合があります。`,'warn');
       setCustomPalette(colors);
     };
     img.src=e.target.result;
@@ -1786,7 +2708,9 @@ function setCustomPalette(colors){
   customMode=true;
   if(retroMode!=='off') switchRetroMode('off');
   updateRetroNoteVisibility();
-  if(dotCanvas){clearTimeout(retroDebounce);retroDebounce=setTimeout(process,300);}
+  updateRetroSharedControlsVisibility();
+  resetProcessingCaches();
+  queueReprocess(180);
 }
 
 function renderCustomSwatches(){
@@ -1806,7 +2730,8 @@ function syncCustomCount(v){
   document.getElementById('customCountSlider').value=v;
   document.getElementById('customCountNum').value=v;
   document.getElementById('customCountDisp').textContent=v+' / '+max+'色';
-  if(dotCanvas&&customMode){clearTimeout(retroDebounce);retroDebounce=setTimeout(process,300);}
+  resetProcessingCaches();
+  if(customMode) queueReprocess(180);
 }
 
 function spinCustomCount(delta){syncCustomCount(customCountVal2+delta);}
@@ -1818,9 +2743,58 @@ function clearCustomPalette(){
   document.getElementById('customPalEmpty').style.display='';
   document.getElementById('customSwatchList').innerHTML='';
   updateRetroNoteVisibility();
+  updateRetroSharedControlsVisibility();
+  resetProcessingCaches();
+  queueReprocess(180);
+}
+
+function applyPreset(name){
+  const preset=PRESETS[name];
+  if(!preset) return;
+
+  clearTimeout(retroDebounce);
+  suppressAutoApply=true;
+  try{
+    if(typeof preset.gray==='boolean') document.getElementById('grayToggle').checked=preset.gray;
+    if(typeof preset.edgeStr==='number'){
+      document.getElementById('edgeStrSlider').value=preset.edgeStr;
+      document.getElementById('edgeStrVal').textContent=preset.edgeStr+'%';
+    }
+    if(typeof preset.palNum==='number') syncPal(preset.palNum);
+    if(preset.pixelMode) switchPixelMode(preset.pixelMode);
+    if(preset.ditherMode) switchDither(preset.ditherMode);
+    if(preset.bayerSize) switchBayerSize(preset.bayerSize);
+    if(typeof preset.exportScale==='number') setExportScale(preset.exportScale);
+    if(preset.exportAlg) setExportAlg(preset.exportAlg);
+    if(typeof preset.crtAspect==='boolean') document.getElementById('crtAspect').checked=preset.crtAspect;
+    syncRetroDeterministic(!!preset.retroDeterministic);
+
+    if(preset.retroMode){
+      switchRetroMode(preset.retroMode);
+      if(preset.retroMode==='fc' && preset.retroCount) syncRetroCount('FC',preset.retroCount);
+      if(preset.retroMode==='pce' && preset.retroCount) syncRetroCount('PCE',preset.retroCount);
+      if(preset.retroMode==='pc98' && preset.retroCount) syncRetroCount('PC98',preset.retroCount);
+      if(typeof preset.retroBright==='number') syncRetroBright(preset.retroBright);
+    } else {
+      switchRetroMode('off');
+    }
+  } finally {
+    suppressAutoApply=false;
+  }
+
+  setStatus('プリセットを反映しました。必要なら数値を微調整して再度ドット化できます。','warn');
+  resetProcessingCaches();
+  applyUIState({reprocess:!!origImg,rerender:true,refreshExport:true,refreshCRT:true});
 }
 
 // ===== END =====
+bindReactiveControls();
+switchTheme('dark');
+updateRetroSamplingHint();
+updateRetroSharedControlsVisibility();
+syncPresetCardCompact();
+renderHistorySnapshots();
+restoreSavedSettingsSilently();
 </script>
 </body>
 </html>
