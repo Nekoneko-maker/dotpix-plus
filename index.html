@@ -144,26 +144,15 @@ header p { font-size: 12px; color: var(--text3); }
   min-width: 0;
 }
 .preview-panel {
-  position: sticky;
-  top: 16px;
-  z-index: 4;
+  position: static;
+  top: auto;
+  z-index: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: calc(100vh - 32px);
-  overflow: auto;
-  padding-right: 4px;
-}
-.preview-panel::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.preview-panel::-webkit-scrollbar-thumb {
-  background: var(--border2);
-  border-radius: 999px;
-}
-.preview-panel::-webkit-scrollbar-track {
-  background: transparent;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 /* Upload */
@@ -511,39 +500,57 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   border-top: 1px solid var(--border);
 }
 .history-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
+.history-list::-webkit-scrollbar { height: 4px; }
+.history-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.history-list::-webkit-scrollbar-track { background: transparent; }
 .history-card {
+  flex-shrink: 0;
+  width: 52px;
   border: 1px solid var(--border);
   background: var(--surface2);
   border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
-  transition: transform .15s, border-color .15s;
+  transition: border-color .15s;
+  position: relative;
 }
-.history-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent2);
-}
+.history-card:hover { border-color: var(--accent2); }
 .history-thumb {
-  width: 100%;
-  aspect-ratio: 1 / 1;
+  width: 52px;
+  height: 52px;
   object-fit: contain;
   display: block;
   background: var(--surface);
+  image-rendering: pixelated;
 }
 .history-meta {
-  padding: 8px;
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 4px 7px;
   font-size: 10px;
-  color: var(--text3);
-  line-height: 1.5;
+  color: var(--text2);
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
 }
+.history-card:hover .history-meta { display: block; }
 .history-empty {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text3);
-  padding: 6px 2px;
+  padding: 4px 2px;
 }
 .preset-grid {
   display: grid;
@@ -696,6 +703,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   }
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -790,7 +798,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
           <div class="label-row">
             1ドットの大きさ
             <span class="spin-wrap">
-              <input type="text" inputmode="numeric" class="pal-num-inline" id="dotNumInline" value="8" onchange="syncDotSize(this.value)">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="dotNumInline" value="4" onchange="syncDotSize(this.value)">
               <span class="spin-btns">
                 <button class="spin-btn" onclick="spin('dotNumInline',1,syncDotSize)">▲</button>
                 <button class="spin-btn" onclick="spin('dotNumInline',-1,syncDotSize)">▼</button>
@@ -1068,7 +1076,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
     <!-- Custom Palette (collapsible) -->
     <div class="section collapsed" id="secCustomPal">
       <div class="section-header collapsible" onclick="toggleSection('secCustomPal')">
-        カスタムパレット <span class="badge" style="margin-left:4px;background:var(--accent2)">NEW</span>
+        カスタムパレット
         <span class="collapse-arrow">▼</span>
       </div>
       <div class="section-body">
@@ -1109,6 +1117,36 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         </div>
 
         <div id="customPalEmpty" class="hint">HEXファイルまたはパレット画像を読み込んでください。</div>
+      </div>
+    </div>
+
+    <!-- 一括変換 -->
+    <div class="section collapsed" id="secBatch">
+      <div class="section-header collapsible" onclick="toggleSection('secBatch')">
+        一括変換
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="hint">複数の画像を現在の設定で変換し、ZIPでまとめてダウンロードします。</div>
+        <button class="btn" onclick="document.getElementById('batchFileInput').click()" style="width:100%;margin-top:2px">画像を選択（複数可）</button>
+        <input type="file" id="batchFileInput" accept="image/*" multiple style="display:none" onchange="onBatchFilesChange(this)">
+        <div id="batchFileInfo" style="display:none;font-size:11px;color:var(--text2)"></div>
+        <div id="batchThumbGrid" style="display:none;display:none;flex-wrap:wrap;gap:4px;max-height:140px;overflow-y:auto;padding:2px 0"></div>
+        <div class="toggle-row">
+          <label class="toggle"><input type="checkbox" id="batchDeterministicToggle"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          パレット固定（ランダムなし）
+        </div>
+        <div class="toggle-row">
+          <label class="toggle"><input type="checkbox" id="batchDotSizeToggle"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          等倍保存（1ドット = 1px）
+        </div>
+        <div id="batchProgressWrap" style="display:none;margin-top:2px">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px" id="batchProgressLabel">処理中...</div>
+          <div style="background:var(--border2);border-radius:2px;height:4px;overflow:hidden">
+            <div id="batchProgressBar" style="height:100%;background:var(--accent);width:0%;transition:width .15s"></div>
+          </div>
+        </div>
+        <button class="btn accent" id="batchRunBtn" onclick="runBatch()" disabled style="width:100%">一括変換してZIPで保存</button>
       </div>
     </div>
 
@@ -1159,18 +1197,27 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
           <div class="canvas-empty">画像を読み込んでドット化しよう</div>
         </div>
       </div>
+    </div>
 
-      <!-- Palette -->
-      <div class="section" id="paletteSection" style="display:none">
-        <div class="section-header">使用カラーパレット <span style="color:var(--accent2);margin-left:6px">青枠 = 優先色に近い</span></div>
+    <!-- Palette -->
+    <div class="section" id="paletteSection" style="display:none">
+      <div class="section-header collapsible" onclick="toggleSection('paletteSection')">
+        使用カラーパレット <span style="color:var(--accent2);margin-left:6px">青枠 = 優先色に近い</span>
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body" style="padding:0">
         <div class="palette-display" id="paletteDisplay"></div>
       </div>
+    </div>
 
-      <div class="section" id="historySection">
-        <div class="section-header">履歴スナップショット <span style="color:var(--accent2);margin-left:6px">直近5件</span></div>
-        <div class="section-body">
-          <div class="history-list" id="historyList"></div>
-        </div>
+    <!-- History -->
+    <div class="section collapsed" id="historySection">
+      <div class="section-header collapsible" onclick="toggleSection('historySection')">
+        履歴スナップショット <span style="color:var(--accent2);margin-left:6px">直近5件</span>
+        <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="history-list" id="historyList"></div>
       </div>
     </div>
 
@@ -1325,7 +1372,7 @@ function getSettingsPayload(){
   return {
     theme:currentTheme,
     specMode,
-    dotSize:parseInt(document.getElementById('dotNumInline').value)||8,
+    dotSize:parseInt(document.getElementById('dotNumInline').value)||4,
     dotCount:parseInt(document.getElementById('dotCountNumInline').value)||64,
     pixelMode,
     edgeStr:parseInt(document.getElementById('edgeStrSlider').value)||40,
@@ -1366,7 +1413,7 @@ function applySettingsPayload(payload,{reprocess=false}={}){
   try{
     switchTheme(payload.theme||'dark');
     switchSpec(payload.specMode||'dotsize');
-    syncDotSize(payload.dotSize||8);
+    syncDotSize(payload.dotSize||4);
     syncDotCount(payload.dotCount||64);
     switchPixelMode(payload.pixelMode||'A');
     document.getElementById('edgeStrSlider').value=payload.edgeStr ?? 40;
@@ -1451,7 +1498,7 @@ function resetSettings(){
   if(!confirm('すべての設定をデフォルトに戻しますか？')) return;
   try{ localStorage.removeItem(SETTINGS_STORAGE_KEY); } catch(_){}
   applySettingsPayload({
-    theme:'dark',specMode:'dotsize',dotSize:8,dotCount:64,
+    theme:'dark',specMode:'dotsize',dotSize:4,dotCount:64,
     pixelMode:'A',edgeStr:40,ditherMode:'none',bayerSize:'4x4',ditherSpread:50,
     palNum:16,gray:false,weight:4,retroMode:'off',
     retroCount:{fc:12,pce:24,pc98:32},retroBright:0,retroDeterministic:false,
@@ -1901,7 +1948,7 @@ function renderRow(){
 function getSmallSize(){
   if(!origImg)return[64,64];
   if(specMode==='dotsize'){
-    const dot=Math.max(2,parseInt(document.getElementById('dotNumInline').value)||8);
+    const dot=Math.max(2,parseInt(document.getElementById('dotNumInline').value)||4);
     return[Math.max(1,Math.ceil(origImg.width/dot)),Math.max(1,Math.ceil(origImg.height/dot))];
   } else {
     const dots=Math.max(4,parseInt(document.getElementById('dotCountNumInline').value)||64);
@@ -2837,6 +2884,171 @@ function applyPreset(name){
 }
 
 // ===== END =====
+function onBatchFilesChange(input){
+  const files=input.files;
+  const n=files.length;
+  const info=document.getElementById('batchFileInfo');
+  const btn=document.getElementById('batchRunBtn');
+  const grid=document.getElementById('batchThumbGrid');
+  grid.innerHTML='';
+  if(n>0){
+    info.style.display='block';
+    info.textContent=`${n}件選択中`;
+    btn.disabled=false;
+    grid.style.display='flex';
+    Array.from(files).forEach((f,i)=>{
+      const wrap=document.createElement('div');
+      wrap.id=`batchThumb_${i}`;
+      wrap.style.cssText='position:relative;width:56px;flex-shrink:0;text-align:center';
+      const img=document.createElement('img');
+      img.style.cssText='width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--border2);image-rendering:pixelated;display:block';
+      const reader=new FileReader();
+      reader.onload=ev=>{ img.src=ev.target.result; };
+      reader.readAsDataURL(f);
+      const label=document.createElement('div');
+      label.style.cssText='font-size:9px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:56px';
+      label.textContent=f.name.replace(/\.[^.]+$/,'');
+      wrap.appendChild(img);
+      wrap.appendChild(label);
+      grid.appendChild(wrap);
+    });
+  } else {
+    info.style.display='none';
+    grid.style.display='none';
+    btn.disabled=true;
+  }
+}
+
+function loadImageFromFile(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>resolve(img);
+      img.onerror=reject;
+      img.src=ev.target.result;
+    };
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
+}
+
+function processOneImage(img,forceDeterministic){
+  const det=forceDeterministic?true:retroDeterministic;
+  const savedOrigImg=origImg;
+  origImg=img;
+  try{
+    const [sw,sh]=getSmallSize();
+    const gray=document.getElementById('grayToggle').checked;
+    const palN=Math.max(2,parseInt(document.getElementById('palNumInline').value)||16);
+    const weight=parseInt(document.getElementById('weightSlider').value)||4;
+
+    const small=document.createElement('canvas');small.width=sw;small.height=sh;
+    const ctx=small.getContext('2d');ctx.drawImage(img,0,0,sw,sh);
+    let data=ctx.getImageData(0,0,sw,sh);
+
+    if(gray){
+      for(let i=0;i<data.data.length;i+=4){
+        const g=Math.round(data.data[i]*.299+data.data[i+1]*.587+data.data[i+2]*.114);
+        data.data[i]=data.data[i+1]=data.data[i+2]=g;
+      }
+      ctx.putImageData(data,0,0);data=ctx.getImageData(0,0,sw,sh);
+    }
+
+    let palette;
+    if(customMode&&customPaletteFull.length>0){
+      palette=reduceRetroKMeans(data,customPaletteFull,customCountVal2,0,10,det);
+    } else if(retroMode==='off'){
+      palette=quantizeWithPriority(data,palN,priorityColors,weight,det);
+    } else {
+      const fullPal=getRetroPalette();
+      const n=Math.max(2,retroCountVal[retroMode]||32);
+      palette=reduceRetroKMeans(data,fullPal,n,retroBrightBias,10,det);
+    }
+
+    if(pixelMode==='A'){
+      mapToPalette(data,palette);
+      ctx.putImageData(data,0,0);
+    } else {
+      const edgeStr=parseInt(document.getElementById('edgeStrSlider').value)/100;
+      processSmartMode(ctx,data,sw,sh,palette,edgeStr,ditherMode);
+    }
+
+    const out=document.createElement('canvas');out.width=img.width;out.height=img.height;
+    const octx=out.getContext('2d');octx.imageSmoothingEnabled=false;
+    octx.drawImage(small,0,0,out.width,out.height);
+    return {full:out,dot:small,sw,sh};
+  } finally {
+    origImg=savedOrigImg;
+  }
+}
+
+async function runBatch(){
+  const input=document.getElementById('batchFileInput');
+  const files=input.files;
+  if(!files.length) return;
+  const forceDet=document.getElementById('batchDeterministicToggle').checked;
+  const saveDotSize=document.getElementById('batchDotSizeToggle').checked;
+  const btn=document.getElementById('batchRunBtn');
+  const progressWrap=document.getElementById('batchProgressWrap');
+  const progressBar=document.getElementById('batchProgressBar');
+  const progressLabel=document.getElementById('batchProgressLabel');
+
+  btn.disabled=true;
+  progressWrap.style.display='block';
+
+  const zip=new JSZip();
+  let succeeded=0;
+  const errors=[];
+
+  for(let i=0;i<files.length;i++){
+    progressLabel.textContent=`処理中... ${i+1} / ${files.length}`;
+    progressBar.style.width=`${(i/files.length)*100}%`;
+    await new Promise(r=>setTimeout(r,0));
+    try{
+      const img=await loadImageFromFile(files[i]);
+      const result=processOneImage(img,forceDet);
+      if(!result) throw new Error('processOneImage returned null');
+      const exportCanvas=saveDotSize ? result.dot : result.full;
+      const dataUrl=exportCanvas.toDataURL('image/png');
+      if(!dataUrl||dataUrl==='data:,') throw new Error('toDataURL empty');
+      const base64=dataUrl.split(',')[1];
+      if(!base64) throw new Error('base64 empty');
+      const base=files[i].name.replace(/\.[^.]+$/,'');
+      const suffix=saveDotSize ? '_dot_1x' : '_dot';
+      zip.file(`${base}${suffix}.png`,base64,{base64:true});
+      const thumb=document.querySelector(`#batchThumb_${i} img`);
+      if(thumb){ thumb.src=dataUrl; thumb.style.border='1px solid var(--accent)'; }
+      succeeded++;
+    } catch(e){
+      errors.push(`[${files[i].name}] ${e.message} | ${(e.stack||'').split('\n')[1]||''}`);
+      console.error('batch error',files[i].name,e);
+      const thumb=document.querySelector(`#batchThumb_${i} img`);
+      if(thumb) thumb.style.border='1px solid var(--danger)';
+    }
+  }
+
+  if(succeeded===0){
+    progressBar.style.width='0%';
+    progressLabel.style.color='var(--danger)';
+    progressLabel.textContent='変換失敗: '+errors.join(' / ');
+    btn.disabled=false;
+    return;
+  }
+
+  progressLabel.style.color='';
+  progressLabel.textContent='ZIPを生成中...';
+  progressBar.style.width='100%';
+  const content=await zip.generateAsync({type:'blob'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(content);
+  a.download=saveDotSize?'dotpix_batch_1x.zip':'dotpix_batch.zip';
+  a.click();
+
+  progressLabel.textContent=`完了！ ${succeeded} / ${files.length} 件を変換しました。`+(errors.length?` (失敗 ${errors.length} 件)`:'');
+  btn.disabled=false;
+}
+
 bindReactiveControls();
 switchTheme('dark');
 updateRetroSamplingHint();
