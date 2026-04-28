@@ -767,7 +767,10 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
             <button class="btn" id="dlDotBtn" onclick="downloadDot()" disabled title="1ドット=1ピクセルで保存">等倍保存</button>
           </div>
         </div>
-        <div class="mini-meta" id="shareMeta" style="margin-top:6px">設定はブラウザに自動保存されます。</div>
+        <div class="mini-meta" style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span id="shareMeta">設定はブラウザに自動保存されます。</span>
+          <button onclick="resetSettings()" title="すべての設定をデフォルトに戻す" style="background:none;border:none;border-bottom:1px dashed var(--text3);padding:0 0 1px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;" onmouseover="this.style.color='var(--danger)';this.style.borderBottomColor='var(--danger)'" onmouseout="this.style.color='var(--text2)';this.style.borderBottomColor='var(--text3)'">設定リセット</button>
+        </div>
       </div>
     </div>
 
@@ -1442,6 +1445,23 @@ function restoreSavedSettingsSilently(){
   } catch(_err){
     return false;
   }
+}
+
+function resetSettings(){
+  if(!confirm('すべての設定をデフォルトに戻しますか？')) return;
+  try{ localStorage.removeItem(SETTINGS_STORAGE_KEY); } catch(_){}
+  applySettingsPayload({
+    theme:'dark',specMode:'dotsize',dotSize:8,dotCount:64,
+    pixelMode:'A',edgeStr:40,ditherMode:'none',bayerSize:'4x4',ditherSpread:50,
+    palNum:16,gray:false,weight:4,retroMode:'off',
+    retroCount:{fc:12,pce:24,pc98:32},retroBright:0,retroDeterministic:false,
+    customMode:false,customPaletteFull:[],customCountVal2:16,
+    priorityColors:[],exportScale:3,exportAlg:'nn',viewMode:'split',
+    crt:{enabled:false,scanlines:true,bloom:true,noise:false,vignette:true,aspect:false,pceRes:'256'},
+    compareSliderPos:50
+  },{reprocess:!!origImg});
+  const meta=document.getElementById('shareMeta');
+  if(meta) meta.textContent='設定をリセットしました。';
 }
 
 function rerollRandom(){
