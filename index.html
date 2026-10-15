@@ -3388,6 +3388,8 @@ function setMediaMode(mode){
   } else {
     pauseVideoComparison();
     stopVideoCompareVisuals();
+    restoreVideoCompareVolume();
+    releaseVideoCompareAudio();
     clearVideoCompareFrames();
     document.getElementById('videoCompareControls').hidden=true;
     document.getElementById('pixelVideoSource').pause();
@@ -3404,6 +3406,7 @@ function setVideoView(view){
   videoCompareResumeSeek=false;
   restoreVideoCompareVolume();
   const comparing=view==='compare'&&videoOutputKind==='video'&&!!pixelVideoResultRange&&pixelVideoCompareFrames.length>0;
+  if(!comparing) releaseVideoCompareAudio();
   const result=(view==='result'||comparing)&&!!videoOutputKind;
   pixelVideoView=comparing?'compare':result?'result':'source';
   const source=document.getElementById('pixelVideoSource');
@@ -3470,9 +3473,10 @@ let pixelVideoFile=null, pixelVideoResultAudio='none', pixelVideoView='source';
 let forceVideoAudioMono=false, pixelVideoResultChannels=0;
 let pixelVideoName='video', pixelVideoLoadId=0;
 let pixelVideoResultRange=null, videoCompareFrame=null, videoCompareAudio=null;
-let videoCompareVolumeState=null, videoCompareResumeSeek=false, videoComparePlayId=0;
+let videoCompareVolumeState=null, videoCompareResumeSeek=false;
 let videoCompareVisual=null;
 let videoCompareRatio=50;
+let videoComparePlayback=null;
 let pixelVideoCompareFrames=[];
 
 function clearVideoCompareFrames(){
@@ -3493,7 +3497,7 @@ function stopVideoCompareVisuals(){
 function startVideoCompareVisuals(){
   const output=document.getElementById('pixelVideoResult');
   const decoder=document.getElementById('videoCompareDecoder');
-  const state={controller:new AbortController(),busy:false,frameIndex:-1,fallback:null,buffer:document.createElement('canvas')};
+  const state={controller:new AbortController(),busy:false,revision:0,frameIndex:-1,fallback:null,buffer:document.createElement('canvas')};
   videoCompareVisual=state;
   const signal=state.controller.signal;
   state.ready=decoder.src===pixelVideoInputURL&&decoder.readyState>=2
@@ -3502,20 +3506,34 @@ function startVideoCompareVisuals(){
   state.ready.catch(()=>{});
   const frame=()=>{
     if(signal.aborted) return;
-    const index=Math.min(pixelVideoCompareFrames.length-1,Math.floor(output.currentTime*(pixelVideoResultRange.fps||12)));
-    if(index!==state.frameIndex) renderVideoComparePair(output.currentTime,state);
+    const time=videoComparePresentationTime();
+    const index=Math.min(pixelVideoCompareFrames.length-1,Math.floor(time*(pixelVideoResultRange.fps||12)));
+    if(index!==state.frameIndex) renderVideoComparePair(time,state);
     state.fallback=requestAnimationFrame(frame);
   };
   state.fallback=requestAnimationFrame(frame);
-  renderVideoComparePair(output.currentTime,state);
+  renderVideoComparePair(videoComparePresentationTime(),state);
 }
 
-async function renderVideoComparePair(mediaTime,state=videoCompareVisual){
+function renderVideoComparePair(mediaTime,state=videoCompareVisual){
+  if(!state) return Promise.resolve();
+  if(state.busy) return state.pending;
+  state.pending=renderVideoComparePairNow(mediaTime,state);
+  return state.pending;
+}
+
+function invalidateVideoCompareFrame(){
+  if(videoCompareVisual){videoCompareVisual.revision++;videoCompareVisual.frameIndex=-1;}
+}
+
+async function renderVideoComparePairNow(mediaTime,state){
   if(!state||state.busy||state.controller.signal.aborted||pixelVideoView!=='compare') return;
   const output=document.getElementById('pixelVideoResult');
   if(output.readyState<2) return;
   state.busy=true;
   const signal=state.controller.signal;
+  const revision=state.revision;
+  state.error=null;
   try{
     const range=pixelVideoResultRange,fps=range.fps||12;
     const index=Math.max(0,Math.min(pixelVideoCompareFrames.length-1,Math.floor(mediaTime*fps)));
@@ -3530,7 +3548,7 @@ async function renderVideoComparePair(mediaTime,state=videoCompareVisual){
     await state.ready;
     const decoder=document.getElementById('videoCompareDecoder');
     await seekPixelVideo(decoder,range.start+index/fps,signal);
-    if(signal.aborted||state!==videoCompareVisual) return;
+    if(signal.aborted||state!==videoCompareVisual||revision!==state.revision) return;
     const original=document.getElementById('videoCompareOriginal'),processed=document.getElementById('videoCompareProcessed');
     if(original.width!==width||original.height!==height){original.width=processed.width=width;original.height=processed.height=height;}
     // Commit both images together; audio uses the two uninterrupted players.
@@ -3538,7 +3556,10 @@ async function renderVideoComparePair(mediaTime,state=videoCompareVisual){
     processed.getContext('2d').drawImage(state.buffer,0,0);
     state.frameIndex=index;
   }catch(e){
-    if(e.name!=='AbortError') document.getElementById('videoCompareStatus').textContent='比較フレームを読み込めません。比較表示を開き直してください。';
+    if(e.name!=='AbortError'&&state===videoCompareVisual&&revision===state.revision){
+      state.error=e;
+      document.getElementById('videoCompareStatus').textContent='比較フレームを読み込めません。比較表示を開き直してください。';
+    }
   }finally{state.busy=false;}
 }
 
@@ -3547,10 +3568,51 @@ function videoCompareDuration(){
   return Math.max(0,Math.min(pixelVideoResultRange?.duration||0,Number.isFinite(duration)?duration:Infinity));
 }
 
+function videoComparePresentationTime(){
+  const output=document.getElementById('pixelVideoResult');
+  const context=videoCompareAudio?.context;
+  if(output.paused||!context||context.state!=='running') return output.currentTime;
+  // MediaElementSource audio reaches the speakers after the media clock advances.
+  const delay=(context.baseLatency||0)+(context.outputLatency||0);
+  return Math.max(0,output.currentTime-Math.max(0,Math.min(.5,delay))*(output.playbackRate||1));
+}
+
+function bindVideoPlayerEvents(player){
+  player.addEventListener('waiting',()=>{
+    if(player!==document.getElementById(player.id)) return;
+    if(pixelVideoView==='compare'&&videoCompareFrame!==null){
+      pauseVideoComparison();
+      document.getElementById('videoCompareStatus').textContent='読み込み待ちで一時停止しました。再生ボタンで再開できます。';
+    }
+  });
+}
+
+function releaseVideoCompareAudio(){
+  if(!videoCompareAudio) return;
+  const graph=videoCompareAudio;videoCompareAudio=null;
+  graph.master.gain.cancelScheduledValues(graph.context.currentTime);
+  graph.master.gain.setValueAtTime(0,graph.context.currentTime);
+  // A media element stays bound to MediaElementSource even after disconnect().
+  // Fresh elements restore native A/V synchronization outside comparison mode.
+  for(const id of ['pixelVideoSource','pixelVideoResult']){
+    const old=document.getElementById(id),fresh=old.cloneNode(true),time=old.currentTime,src=old.src;
+    old.pause();fresh.muted=old.muted;fresh.volume=old.volume;fresh.playbackRate=1;
+    fresh.addEventListener('loadedmetadata',()=>{
+      if(fresh.src===src&&time>0&&Number.isFinite(fresh.duration)) fresh.currentTime=Math.min(time,Math.max(0,fresh.duration-.001));
+      if(id==='pixelVideoSource'){updateMediaActions();sizeVideoCompareStage();}
+    },{once:true});
+    old.replaceWith(fresh);bindVideoPlayerEvents(fresh);fresh.load();
+    old.removeAttribute('src');old.load();
+  }
+  for(const node of [graph.original,graph.processed,graph.master]) node.disconnect();
+  graph.context.close().catch(()=>{});
+}
+
 function sizeVideoCompareStage(){
   if(pixelVideoView!=='compare') return;
   const stage=document.getElementById('videoResultSection');
   const source=document.getElementById('pixelVideoSource');
+  if(!source.videoWidth||!source.videoHeight) return;
   const aspect=source.videoWidth/Math.max(1,source.videoHeight);
   const width=Math.min(stage.parentElement.clientWidth,Math.min(innerHeight*.55,480)*aspect);
   stage.style.width=width+'px';stage.style.height=width/aspect+'px';
@@ -3621,7 +3683,7 @@ function setVideoCompareRatio(value){
   updateVideoCompareMix();
 }
 
-function updateVideoCompareClock(time=document.getElementById('pixelVideoResult').currentTime){
+function updateVideoCompareClock(time=videoComparePresentationTime()){
   const duration=videoCompareDuration();
   const slider=document.getElementById('videoCompareTime');
   slider.max=duration||1;slider.value=Math.min(duration,time);
@@ -3629,18 +3691,21 @@ function updateVideoCompareClock(time=document.getElementById('pixelVideoResult'
 }
 
 function pauseVideoComparison(){
-  videoComparePlayId++;
+  videoComparePlayback?.controller.abort();videoComparePlayback=null;
   cancelAnimationFrame(videoCompareFrame);videoCompareFrame=null;
   document.getElementById('pixelVideoSource').pause();
   document.getElementById('pixelVideoResult').pause();
   document.getElementById('pixelVideoSource').playbackRate=1;
+  document.getElementById('pixelVideoResult').playbackRate=1;
   document.getElementById('videoComparePlay').textContent='再生';
+  document.getElementById('videoComparePlay').disabled=false;
 }
 
 function seekVideoComparison(value){
   if(pixelVideoView!=='compare'||!pixelVideoResultRange) return;
   videoCompareResumeSeek=videoCompareResumeSeek||!document.getElementById('pixelVideoResult').paused;
   pauseVideoComparison();
+  invalidateVideoCompareFrame();
   const time=Math.max(0,Math.min(Number(value)||0,Math.max(0,videoCompareDuration()-.01)));
   document.getElementById('pixelVideoResult').currentTime=time;
   document.getElementById('pixelVideoSource').currentTime=pixelVideoResultRange.start+time;
@@ -3655,43 +3720,54 @@ function finishVideoCompareSeek(){
 async function toggleVideoComparePlayback(){
   if(pixelVideoView!=='compare'||pixelVideoJob) return;
   const source=document.getElementById('pixelVideoSource'),output=document.getElementById('pixelVideoResult');
-  if(!output.paused){pauseVideoComparison();return;}
-  const id=++videoComparePlayId;
-  document.getElementById('videoComparePlay').disabled=true;
+  if(videoComparePlayback||!output.paused){pauseVideoComparison();return;}
+  pauseVideoComparison();
+  const session={controller:new AbortController()};videoComparePlayback=session;
+  const signal=session.controller.signal;
+  const active=()=>videoComparePlayback===session&&!signal.aborted&&pixelVideoView==='compare';
+  document.getElementById('videoComparePlay').textContent='準備中（中止）';
   try{
     if(!videoCompareVisual) startVideoCompareVisuals();
-    await ensureVideoCompareAudio();
-    const signal=new AbortController().signal;
-    if(output.readyState<3) await waitVideoEvent(output,'canplay',signal,()=>{});
-    if(id!==videoComparePlayId||pixelVideoView!=='compare') return;
+    await videoAudioTask(ensureVideoCompareAudio(),signal);
+    if(!active()) return;
     const time=output.ended||output.currentTime>=videoCompareDuration()-.04?0:output.currentTime;
-    if(output.currentTime!==time){
-      await waitVideoEvent(output,'seeked',signal,()=>{output.currentTime=time;});
-    } else if(output.seeking){
-      await waitVideoEvent(output,'seeked',signal,()=>{});
-    }
-    await seekPixelVideo(source,pixelVideoResultRange.start+time,signal);
-    if(id!==videoComparePlayId||pixelVideoView!=='compare') return;
-    await Promise.all([source.play(),output.play()]);
-    if(id!==videoComparePlayId||pixelVideoView!=='compare'){source.pause();output.pause();return;}
+    invalidateVideoCompareFrame();
+    await Promise.all([seekPixelVideo(output,time,signal),seekPixelVideo(source,pixelVideoResultRange.start+time,signal)]);
+    await Promise.all([source,output].map(player=>player.readyState>=3?Promise.resolve():waitVideoEvent(player,'canplay',signal,()=>{})));
+    const visual=videoCompareVisual;
+    if(visual?.pending) await videoAudioTask(visual.pending,signal);
+    await videoAudioTask(renderVideoComparePair(time,visual),signal);
+    if(!active()) return;
+    if(visual?.error) throw visual.error;
+    await videoAudioTask(Promise.all([source.play(),output.play()]),signal);
+    if(!active()) return;
     document.getElementById('videoComparePlay').textContent='一時停止';
     document.getElementById('videoCompareStatus').textContent='同期再生中。音声は比較比率に合わせてクロスフェードします。';
     const tick=()=>{
-      if(id!==videoComparePlayId||pixelVideoView!=='compare') return;
+      if(!active()) return;
+      if(videoCompareAudio&&videoCompareAudio.context.state!=='running'){
+        pauseVideoComparison();
+        document.getElementById('videoCompareStatus').textContent='音声出力が中断されたため一時停止しました。再生ボタンで同期して再開できます。';
+        return;
+      }
       updateVideoCompareClock();
       if(output.paused||output.ended||source.ended||output.currentTime>=videoCompareDuration()){
         pauseVideoComparison();return;
       }
       const drift=source.currentTime-(pixelVideoResultRange.start+output.currentTime);
-      if(Math.abs(drift)>.15&&!source.seeking) source.currentTime=pixelVideoResultRange.start+output.currentTime;
-      else source.playbackRate=Math.max(.95,Math.min(1.05,1-drift*.5));
+      if(Math.abs(drift)>.08&&!source.seeking){
+        source.playbackRate=1;source.currentTime=pixelVideoResultRange.start+output.currentTime;
+      }else if(!source.seeking){
+        source.playbackRate=Math.abs(drift)<.015?1:Math.max(.98,Math.min(1.02,1-drift*.5));
+      }
       videoCompareFrame=requestAnimationFrame(tick);
     };
     tick();
   }catch(e){
+    if(!active()) return;
     pauseVideoComparison();
     document.getElementById('videoCompareStatus').textContent='比較再生を開始できませんでした。もう一度再生してください。'+(e.message||'');
-  }finally{document.getElementById('videoComparePlay').disabled=false;}
+  }
 }
 
 function initVideoComparison(){
@@ -3714,17 +3790,7 @@ function initVideoComparison(){
     stage.setPointerCapture(e.pointerId);move(e);
   });
   stage.addEventListener('pointermove',e=>{if(stage.hasPointerCapture(e.pointerId)&&pixelVideoView==='compare') move(e);});
-  for(const id of ['pixelVideoSource','pixelVideoResult']){
-    document.getElementById(id).addEventListener('play',()=>{
-      if(videoCompareAudio) videoCompareAudio.context.resume().catch(()=>{});
-    });
-    document.getElementById(id).addEventListener('waiting',()=>{
-      if(pixelVideoView==='compare'&&videoCompareFrame!==null){
-        pauseVideoComparison();
-        document.getElementById('videoCompareStatus').textContent='読み込み待ちで一時停止しました。再生ボタンで再開できます。';
-      }
-    });
-  }
+  for(const id of ['pixelVideoSource','pixelVideoResult']) bindVideoPlayerEvents(document.getElementById(id));
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&pixelVideoView==='compare') pauseVideoComparison();});
 }
 
@@ -3857,6 +3923,7 @@ function waitVideoEvent(target,event,signal,action){
 async function loadPixelVideo(input,generation=mediaLoadGeneration){
   const file=input.files[0];
   if(!file) return;
+  pauseVideoComparison();stopVideoCompareVisuals();restoreVideoCompareVolume();releaseVideoCompareAudio();
   const id=++pixelVideoLoadId;
   const video=document.getElementById('pixelVideoSource');
   const status=document.getElementById('videoStatus');
@@ -3921,7 +3988,10 @@ function setVideoBusy(busy){
 
 async function seekPixelVideo(video,time,signal){
   videoCheck(signal);
-  if(Math.abs(video.currentTime-time)<0.00001 && video.readyState>=2) return;
+  if(Math.abs(video.currentTime-time)<0.00001 && video.readyState>=2){
+    if(video.seeking) await waitVideoEvent(video,'seeked',signal,()=>{});
+    return;
+  }
   await waitVideoEvent(video,'seeked',signal,()=>{video.currentTime=time;});
 }
 
@@ -4162,7 +4232,7 @@ function selectVideoMime(format,withAudio){
 
 async function runPixelVideo(previewOnly){
   if(pixelVideoJob) return;
-  const video=document.getElementById('pixelVideoSource');
+  let video=document.getElementById('pixelVideoSource');
   const status=document.getElementById('videoStatus');
   const progress=document.getElementById('videoProgress');
   const start=Number(document.getElementById('videoStart').value);
@@ -4216,6 +4286,8 @@ async function runPixelVideo(previewOnly){
       if(pixelVideoView==='compare') setVideoView('result');
       clearVideoCompareFrames();
     }
+    video=document.getElementById('pixelVideoSource');
+    if(video.readyState<2) await waitVideoEvent(video,'loadeddata',signal,()=>{});
     document.getElementById('pixelVideoResult').pause();
     if(withAudio){
       const Context=window.AudioContext||window.webkitAudioContext;
