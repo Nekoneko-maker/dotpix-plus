@@ -1,33 +1,54 @@
 # dotpix-plus
-ドット絵変換ツール — Browser-based pixel art converter — no install, no login, no data sent anywhere.
+画像・動画のドット絵変換ツール。インストール・ログイン不要で、メディアの処理はブラウザ内で行います。
 
-Just drop an image and convert it to pixel art instantly.
-Works completely offline.
+Drop an image or a short video to create pixel art. Media files are processed locally in your browser and are not uploaded to a server.
 
-## Features
+## 主な機能 / Features
 
-- 🎮 **Retro palette modes** — FC (54 colors), PCE (512 colors), PC-98 (4096 colors)
-- 🔬 **Smart mode** — Sobel edge detection keeps outlines sharp (great for faces & characters)
-- 🎨 **Dithering** — Ordered (Bayer matrix) / Floyd-Steinberg
-- 📺 **CRT filter** — Scanlines, bloom, vignette, noise (bonus vibes)
-- 💾 **Dot-by-dot export** — 1 dot = 1 pixel, ready to import into Aseprite / LibreSprite / Pixelorama
-- 🖼️ **Priority color picker** — eyedrop colors you want to keep in the palette
+- 画像・動画で共通の読み込み、プレビュー、変換操作
+- FC / PCE / PC-98パレット、カスタムパレット、優先色スポイト
+- シンプル / エッジ検出を使うスマートモード
+- Bayer 4x4 / 8x8、Floyd-Steinbergディザリング
+- ランダム量子化と再現性重視の切り替え
+- 画像のCRT表示効果、Before / Afterスライダー比較、直近5件の履歴
+- PNG保存、1ドット=1pxの等倍保存、一括変換してZIP出力
+- 短い動画の区間指定、FPS設定、等倍 / 原寸出力、進捗とキャンセル
+- 動画の音声なし / 元音声 / 44.1・22.05・11.025kHz加工
+- FC風 / PCE風 / PC-98 PCM風 / SFC風の音声質感加工
+- コンパクトな折りたたみUI、4種類のテーマ、設定の自動保存
 
-## Usage
+## 使い方 / Usage
 
-No installation needed. Open `index.html` in your browser and you're good to go.
+1. `index.html`をブラウザで開き、画像または動画を選択・ドロップします。
+2. プリセットや詳細設定で見た目を調整します。
+3. 上部の「ドット化する」または「動画を変換」を押します。
+4. 右のプレビューで確認し、保存ボタンからダウンロードします。
 
-Or use the live version:
-👉 https://github.com/Nekoneko-maker/dotpix-plus
+動画は「原動画 / 変換後」を同じプレビューで切り替えられます。音声は動画設定の選択欄から指定してください。画像の一括変換は専用セクションから複数ファイルを選びます。
+
+## 動画・音声の制限
+
+- 入力はブラウザで再生できる形式です。MP4 / WebMでも内部コーデックによって利用できない場合があります。
+- 変換区間は最大30秒。出力はブラウザの対応に応じてWebMまたはMP4です。
+- 等倍出力は1ドット=1px。原寸出力は長辺1920pxまでです。
+- フレーム保持量の上限は約96MBです。区間・FPSを減らすか、ドットを粗くすると処理量を減らせます。
+- 音声付き変換の入力は3分・128MBまでです。音声をデコードできない場合は「音声なし」を選ぶか、別形式を試してください。
+- SR指定は音声加工時の周波数です。保存時の周波数はコーデックに従い、元音声も再圧縮します。
+- レトロ音声は質感を寄せる加工です。実機音源やDPCM・BRRコーデックの完全再現ではありません。
+- 動画にCRT表示効果は含まれません。先頭フレーム確認は静止画です。
+- 書き出し中はページを表示したままにしてください。ページが非表示になると処理を中止します。
+
+Chromeで画像変換・動画書き出し・全音声モードを確認しています。他のブラウザでは対応形式や音声デコードに差があります。
 
 ## Tech
 
-Pure HTML + CSS + JavaScript. Zero dependencies. Zero external APIs.
-Google Fonts only (Space Mono + Noto Sans JP).
+単一HTML内のCSS + JavaScriptと、ブラウザ標準のCanvas / Web Audio / MediaRecorderを利用しています。ビルドやサーバー処理は不要です。
+
+Google Fonts（Space Mono + Noto Sans JP）と、一括ZIP出力用JSZipをCDNから読み込みます。フォントとZIP機能の利用にはそれらの読み込みが必要です。完全オフライン動作を保証する構成ではありません。
 
 ## Language
 
-UI is currently Japanese only. English localization planned for a future update.
+UI is currently Japanese.
 
 ## License
 
