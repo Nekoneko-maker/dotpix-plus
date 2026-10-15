@@ -1202,6 +1202,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
             </optgroup>
           </select>
         </label>
+        <div class="toggle-row"><label class="toggle"><input type="checkbox" id="videoAudioMono" onchange="setVideoAudioMono(this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label><label for="videoAudioMono">モノラル化（左右をまとめる）</label></div>
         <div class="mini-meta" id="videoAudioHint">変換後は無音です。音量バーが表示されても音声は含まれません。</div>
         <div class="toggle-row"><label class="toggle"><input type="checkbox" id="videoDotSize" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>等倍出力（1ドット = 1px）</div>
         <details class="help-details"><summary>動画出力について</summary><div class="hint">再現性重視がOFFなら、変換ごとに色選びが変わります。原寸は長辺1920pxまで。WebMまたはMP4で保存します。音声の周波数指定は加工時の値で、保存時の周波数はコーデックに従います。元音声も保存時に再圧縮します。音声付き変換の入力は3分・128MBまで。書き出し中はこの画面を表示したままにしてください。</div></details>
@@ -1479,6 +1480,7 @@ function getSettingsPayload(){
     },
     compareSliderPos,
     videoAudioMode:document.getElementById('videoAudioMode').value,
+    videoAudioMono:forceVideoAudioMono,
     customPaletteFull:customPaletteFull.map(c=>[...c])
   };
 }
@@ -1490,6 +1492,7 @@ function applySettingsPayload(payload,{reprocess=false}={}){
   try{
     switchTheme(payload.theme||'dark');
     document.getElementById('videoAudioMode').value=VIDEO_AUDIO_MODES[payload.videoAudioMode]?payload.videoAudioMode:'none';
+    forceVideoAudioMono=!!payload.videoAudioMono;
     updateVideoAudioHint();
     switchSpec(payload.specMode||'dotsize');
     syncDotSize(payload.dotSize||4);
@@ -3240,12 +3243,13 @@ function initCompactUI(){
 
 let pixelVideoInputURL=null, pixelVideoOutputURL=null, pixelVideoJob=null;
 let pixelVideoFile=null, pixelVideoResultAudio='none', pixelVideoView='source';
+let forceVideoAudioMono=false, pixelVideoResultChannels=0;
 let pixelVideoName='video', pixelVideoLoadId=0;
 
 const VIDEO_AUDIO_MODES={
   none:{label:'音声なし',hint:'変換後は無音です。音量バーが表示されても音声は含まれません。'},
   original:{label:'元音声',hint:'音質加工なし。選択区間の音声を保持します（保存時に再圧縮）。'},
-  sr44:{label:'44.1kHz',rate:44100,bits:16,hint:'44.1kHz / 16bit相当 / ステレオを保持。'},
+  sr44:{label:'44.1kHz',rate:44100,bits:16,hint:'44.1kHz / 16bit相当。'},
   sr22:{label:'22.05kHz',rate:22050,bits:16,hint:'22.05kHz / 16bit相当。高音域を抑えた音。'},
   sr11:{label:'11.025kHz',rate:11025,bits:16,hint:'11.025kHz / 16bit相当。こもった低帯域の音。'},
   fc:{label:'FC風',rate:11025,bits:7,mono:true,delta:true,cutoff:4500,hint:'11.025kHz / モノラル / 7bit・差分風の質感。実機再現ではありません。'},
@@ -3254,10 +3258,19 @@ const VIDEO_AUDIO_MODES={
   sfc:{label:'SFC風',rate:32000,bits:16,cutoff:7000,hint:'32kHz / 16bit相当 / 高域を柔らかく。BRR・実機音源の再現ではありません。'}
 };
 
-function updateVideoAudioHint(){
+function setVideoAudioMono(checked){
+  forceVideoAudioMono=!!checked;
+  updateVideoAudioHint();
+}
+
+function updateVideoAudioHint(save=true){
   const mode=document.getElementById('videoAudioMode').value;
-  document.getElementById('videoAudioHint').textContent=(VIDEO_AUDIO_MODES[mode]||VIDEO_AUDIO_MODES.none).hint;
-  if(!suppressAutoApply) scheduleSettingsSave();
+  const config=VIDEO_AUDIO_MODES[mode]||VIDEO_AUDIO_MODES.none;
+  const toggle=document.getElementById('videoAudioMono');
+  toggle.checked=!!config.mono||forceVideoAudioMono;
+  toggle.disabled=mode==='none'||!!config.mono;
+  document.getElementById('videoAudioHint').textContent=config.hint+(mode!=='none'&&!config.mono?(forceVideoAudioMono?' モノラルで出力。':' 元のチャンネル構成を保持。'):'');
+  if(save&&!suppressAutoApply) scheduleSettingsSave();
 }
 
 function updateVideoAudioNote(){
@@ -3267,7 +3280,7 @@ function updateVideoAudioNote(){
   else if(videoOutputKind==='frame') note.textContent='先頭フレームの静止画プレビューです。音声は動画変換後に確認できます。';
   else note.textContent=pixelVideoResultAudio==='none'
     ? '変換後：音声なし。音量バーが表示されても無音です。'
-    : `変換後の音声：${VIDEO_AUDIO_MODES[pixelVideoResultAudio].label}（選択区間に合わせて出力）。`;
+    : `変換後の音声：${VIDEO_AUDIO_MODES[pixelVideoResultAudio].label} / ${pixelVideoResultChannels===1?'モノラル':'ステレオ'}（選択区間に合わせて出力）。`;
 }
 
 function videoAudioTask(task,signal){
@@ -3279,7 +3292,7 @@ function videoAudioTask(task,signal){
   });
 }
 
-async function prepareVideoAudio(mode,context,start,duration,signal){
+async function prepareVideoAudio(mode,context,start,duration,signal,forceMono=forceVideoAudioMono){
   if(!pixelVideoFile) throw new Error('動画をもう一度読み込んでください。');
   if(pixelVideoFile.size>128*1024*1024 || document.getElementById('pixelVideoSource').duration>180){
     throw new Error('音声付き変換は入力3分・128MBまでです。短く切り出すか「音声なし」を選んでください。');
@@ -3297,7 +3310,7 @@ async function prepareVideoAudio(mode,context,start,duration,signal){
   if(start>=decoded.duration) throw new Error('選択区間に音声がありません。「音声なし」を選ぶか開始位置を変更してください。');
   const config=VIDEO_AUDIO_MODES[mode];
   const rate=config.rate||decoded.sampleRate;
-  const channels=config.mono?1:Math.min(2,decoded.numberOfChannels);
+  const channels=(config.mono||forceMono)?1:Math.min(2,decoded.numberOfChannels);
   const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   if(!Offline) throw new Error('このブラウザは音声加工に対応していません。「音声なし」を選ぶか別のブラウザで試してください。');
   const offline=new Offline(channels,Math.max(1,Math.ceil(duration*rate)),rate);
@@ -3411,6 +3424,7 @@ function setVideoBusy(busy){
   document.querySelectorAll('#secVideo input, #secVideo select, #mediaConvertBtn, #videoPreviewBtn').forEach(el=>el.disabled=busy);
   document.getElementById('videoCancelBtn').hidden=!busy;
   document.getElementById('videoProgress').hidden=!busy;
+  if(!busy) updateVideoAudioHint(false);
 }
 
 async function seekPixelVideo(video,time,signal){
@@ -3593,6 +3607,7 @@ async function runPixelVideo(previewOnly){
     result.src=pixelVideoOutputURL;section.hidden=false;
     result.muted=!withAudio;
     pixelVideoResultAudio=audioMode;
+    pixelVideoResultChannels=audioBuffer?.numberOfChannels||0;
     videoOutputKind='video';
     setVideoView('result');
     const link=document.getElementById('videoSaveLink');
@@ -3619,6 +3634,7 @@ updateRetroSharedControlsVisibility();
 syncPresetCardCompact();
 renderHistorySnapshots();
 restoreSavedSettingsSilently();
+updateVideoAudioHint(false);
 </script>
 </body>
 </html>
