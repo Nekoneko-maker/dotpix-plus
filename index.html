@@ -478,6 +478,21 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .help-details .hint { padding: 4px 8px; }
 .video-view { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .video-view video, .video-view canvas { display: block; width: 100%; max-height: calc(100dvh - 190px); object-fit: contain; }
+.video-view.video-compare {
+  position: relative; display: grid; height: min(55dvh, 480px);
+  align-self: center; background: #090909; cursor: ew-resize; touch-action: none;
+}
+.video-view.video-compare video {
+  grid-area: 1 / 1; width: 100%; height: 100%; min-height: 0;
+  max-height: none !important; pointer-events: none; object-fit: fill;
+}
+.video-view.video-compare #pixelVideoResult { z-index: 1; }
+.video-compare-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 2; pointer-events: none; }
+.video-compare-divider::after { content: ''; position: absolute; top: calc(50% - 10px); left: -8px; width: 18px; height: 20px; border-radius: 6px; border: 2px solid var(--accent); background: var(--surface); }
+.video-compare-controls { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.video-compare-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.video-compare-transport input[type=range] { flex: 1; min-width: 100px; width: auto; }
+.video-compare-transport time { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--text2); }
 .preview-panel .canvas-view-tabs { flex-wrap: wrap; }
 .preview-panel .canvas-view-tabs .tab { flex: 0 1 auto; min-width: 64px; }
 :is(button, a, input, select, summary, [role="button"]):focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
@@ -1227,6 +1242,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <button class="tab" id="btnExport" onclick="setView('export')">拡大プレビュー</button>
         <button class="tab" id="btnVideoSource" onclick="setVideoView('source')" hidden>原動画</button>
         <button class="tab" id="btnVideoResult" onclick="setVideoView('result')" hidden disabled>変換後</button>
+        <button class="tab" id="btnVideoCompare" onclick="setVideoView('compare')" hidden disabled>スライダー比較</button>
       </div>
 
       <!-- CRT Filter controls -->
@@ -1269,6 +1285,19 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <video id="pixelVideoSource" controls muted playsinline preload="auto" hidden></video>
         <canvas id="videoFramePreview" style="width:100%;max-height:420px;object-fit:contain" hidden></canvas>
         <video id="pixelVideoResult" controls playsinline style="width:100%;max-height:420px;image-rendering:pixelated" hidden></video>
+        <div class="video-compare-divider" id="videoCompareDivider" hidden></div>
+      </div>
+      <div class="video-compare-controls" id="videoCompareControls" hidden>
+        <div class="label-row"><span>原動画・原音 ↔ 変換後・加工音</span><span class="val" id="videoCompareRatio">加工後 50%</span></div>
+        <input type="range" id="videoCompareRange" min="0" max="100" value="50" step="1" aria-label="原動画と変換後の比較比率・音声クロスフェーダー" oninput="setVideoCompareRatio(this.value)">
+        <div class="video-compare-transport">
+          <button class="btn" id="videoComparePlay" onclick="toggleVideoComparePlayback()">再生</button>
+          <input type="range" id="videoCompareTime" min="0" max="1" value="0" step="0.01" aria-label="比較動画の再生位置" oninput="seekVideoComparison(this.value)" onchange="finishVideoCompareSeek()">
+          <time id="videoCompareClock">0.00 / 0.00秒</time>
+          <label class="hint" for="videoCompareVolume">音量</label>
+          <input type="range" id="videoCompareVolume" min="0" max="100" value="80" aria-label="比較動画の音量" oninput="updateVideoCompareMix()" style="max-width:100px;min-width:60px">
+        </div>
+        <div class="mini-meta" id="videoCompareStatus" role="status"></div>
       </div>
       <div class="mini-meta" id="videoAudioNote" role="status" hidden></div>
     </div>
@@ -3198,13 +3227,15 @@ function setMediaMode(mode){
   document.getElementById('videoResultSection').hidden=!isVideo;
   document.getElementById('videoAudioNote').hidden=!isVideo;
   ['Both','Slider','Orig','Dot','Export'].forEach(n=>document.getElementById('btn'+n).hidden=isVideo);
-  ['Source','Result'].forEach(n=>document.getElementById('btnVideo'+n).hidden=!isVideo);
+  ['Source','Result','Compare'].forEach(n=>document.getElementById('btnVideo'+n).hidden=!isVideo);
   document.getElementById('videoSaveLink').hidden=!isVideo||videoOutputKind!=='video';
   if(isVideo){
     document.getElementById('paletteSection').style.display='none';
     document.getElementById('historySection').hidden=true;
     setVideoView('source');
   } else {
+    pauseVideoComparison();
+    document.getElementById('videoCompareControls').hidden=true;
     document.getElementById('pixelVideoSource').pause();
     document.getElementById('pixelVideoResult').pause();
     document.getElementById('historySection').hidden=false;
@@ -3213,17 +3244,43 @@ function setMediaMode(mode){
 }
 
 function setVideoView(view){
-  const result=view==='result'&&!!videoOutputKind;
-  pixelVideoView=result?'result':'source';
+  pauseVideoComparison();
+  videoCompareResumeSeek=false;
+  restoreVideoCompareVolume();
+  const comparing=view==='compare'&&videoOutputKind==='video'&&!!pixelVideoResultRange;
+  const result=(view==='result'||comparing)&&!!videoOutputKind;
+  pixelVideoView=comparing?'compare':result?'result':'source';
   const source=document.getElementById('pixelVideoSource');
   const output=document.getElementById('pixelVideoResult');
   source.pause();output.pause();
-  source.hidden=result;
+  source.hidden=result&&!comparing;
   output.hidden=!result||videoOutputKind!=='video';
   document.getElementById('videoFramePreview').hidden=!result||videoOutputKind!=='frame';
   document.getElementById('btnVideoSource').className='tab'+(!result?' active':'');
-  document.getElementById('btnVideoResult').className='tab'+(result?' active':'');
+  document.getElementById('btnVideoResult').className='tab'+(result&&!comparing?' active':'');
+  document.getElementById('btnVideoCompare').className='tab'+(comparing?' active':'');
   document.getElementById('btnVideoResult').disabled=!videoOutputKind;
+  document.getElementById('btnVideoCompare').disabled=videoOutputKind!=='video'||!pixelVideoResultRange;
+  document.getElementById('videoResultSection').classList.toggle('video-compare',comparing);
+  document.getElementById('videoCompareDivider').hidden=!comparing;
+  document.getElementById('videoCompareControls').hidden=!comparing;
+  source.controls=output.controls=!comparing;
+  if(comparing){
+    sizeVideoCompareStage();
+    videoCompareVolumeState={sourceMuted:source.muted,outputMuted:output.muted,sourceVolume:source.volume,outputVolume:output.volume};
+    source.muted=false;output.muted=pixelVideoResultAudio==='none';source.volume=output.volume=1;
+    if(output.currentTime>.001) output.currentTime=0;
+    if(Math.abs(source.currentTime-pixelVideoResultRange.start)>.001) source.currentTime=pixelVideoResultRange.start;
+    document.getElementById('videoCompareStatus').textContent='同じ区間を同期再生します。比較スライダーは音声のクロスフェーダーも兼ねます（保存動画には影響しません）。';
+    setVideoCompareRatio(document.getElementById('videoCompareRange').value);
+    updateVideoCompareClock();
+  } else {
+    document.getElementById('videoResultSection').style.width='';
+    document.getElementById('videoResultSection').style.height='';
+    output.style.clipPath='';
+    restoreVideoCompareVolume();
+    updateVideoCompareMix();
+  }
   updateVideoAudioNote();
 }
 
@@ -3251,6 +3308,169 @@ let pixelVideoInputURL=null, pixelVideoOutputURL=null, pixelVideoJob=null;
 let pixelVideoFile=null, pixelVideoResultAudio='none', pixelVideoView='source';
 let forceVideoAudioMono=false, pixelVideoResultChannels=0;
 let pixelVideoName='video', pixelVideoLoadId=0;
+let pixelVideoResultRange=null, videoCompareFrame=null, videoCompareAudio=null;
+let videoCompareVolumeState=null, videoCompareResumeSeek=false, videoComparePlayId=0;
+
+function videoCompareDuration(){
+  const duration=document.getElementById('pixelVideoResult').duration;
+  return Math.max(0,Math.min(pixelVideoResultRange?.duration||0,Number.isFinite(duration)?duration:Infinity));
+}
+
+function sizeVideoCompareStage(){
+  if(pixelVideoView!=='compare') return;
+  const stage=document.getElementById('videoResultSection');
+  const source=document.getElementById('pixelVideoSource');
+  const aspect=source.videoWidth/Math.max(1,source.videoHeight);
+  const width=Math.min(stage.parentElement.clientWidth,Math.min(innerHeight*.55,480)*aspect);
+  stage.style.width=width+'px';stage.style.height=width/aspect+'px';
+}
+
+function restoreVideoCompareVolume(){
+  if(!videoCompareVolumeState) return;
+  const source=document.getElementById('pixelVideoSource'),output=document.getElementById('pixelVideoResult');
+  source.muted=videoCompareVolumeState.sourceMuted;output.muted=videoCompareVolumeState.outputMuted;
+  source.volume=videoCompareVolumeState.sourceVolume;output.volume=videoCompareVolumeState.outputVolume;
+  videoCompareVolumeState=null;
+}
+
+function updateVideoCompareMix(){
+  if(!videoCompareAudio) return;
+  const {context,original,processed}=videoCompareAudio;
+  const ratio=Number(document.getElementById('videoCompareRange').value)/100;
+  const comparing=pixelVideoView==='compare'&&currentMedia==='video';
+  const volume=Number(document.getElementById('videoCompareVolume').value)/100;
+  // Linear complementary gains avoid boosting identical audio at the midpoint.
+  const a=comparing?(1-ratio)*volume:pixelVideoView==='source'?1:0;
+  const b=comparing?ratio*volume:pixelVideoView==='result'?1:0;
+  for(const [node,value] of [[original,a],[processed,b]]){
+    node.gain.cancelScheduledValues(context.currentTime);
+    node.gain.setTargetAtTime(value,context.currentTime,0.015);
+  }
+}
+
+async function ensureVideoCompareAudio(){
+  if(!videoCompareAudio){
+    const Context=window.AudioContext||window.webkitAudioContext;
+    if(!Context) throw new Error('このブラウザでは音声クロスフェードを利用できません。');
+    const context=new Context();
+    const original=context.createGain(),processed=context.createGain();
+    original.gain.value=processed.gain.value=0;
+    context.createMediaElementSource(document.getElementById('pixelVideoSource')).connect(original);
+    context.createMediaElementSource(document.getElementById('pixelVideoResult')).connect(processed);
+    original.connect(context.destination);processed.connect(context.destination);
+    videoCompareAudio={context,original,processed};
+  }
+  await videoCompareAudio.context.resume();
+  updateVideoCompareMix();
+}
+
+function setVideoCompareRatio(value){
+  const pos=Math.max(0,Math.min(100,Number(value)||0));
+  document.getElementById('videoCompareRange').value=pos;
+  document.getElementById('videoCompareRatio').textContent=`加工後 ${pos}%`;
+  document.getElementById('videoCompareDivider').style.left=pos+'%';
+  if(pixelVideoView==='compare') document.getElementById('pixelVideoResult').style.clipPath=`inset(0 ${100-pos}% 0 0)`;
+  updateVideoCompareMix();
+}
+
+function updateVideoCompareClock(time=document.getElementById('pixelVideoResult').currentTime){
+  const duration=videoCompareDuration();
+  const slider=document.getElementById('videoCompareTime');
+  slider.max=duration||1;slider.value=Math.min(duration,time);
+  document.getElementById('videoCompareClock').textContent=`${Math.min(duration,time).toFixed(2)} / ${duration.toFixed(2)}秒`;
+}
+
+function pauseVideoComparison(){
+  videoComparePlayId++;
+  cancelAnimationFrame(videoCompareFrame);videoCompareFrame=null;
+  document.getElementById('pixelVideoSource').pause();
+  document.getElementById('pixelVideoResult').pause();
+  document.getElementById('pixelVideoSource').playbackRate=1;
+  document.getElementById('videoComparePlay').textContent='再生';
+}
+
+function seekVideoComparison(value){
+  if(pixelVideoView!=='compare'||!pixelVideoResultRange) return;
+  videoCompareResumeSeek=videoCompareResumeSeek||!document.getElementById('pixelVideoResult').paused;
+  pauseVideoComparison();
+  const time=Math.max(0,Math.min(Number(value)||0,Math.max(0,videoCompareDuration()-.01)));
+  document.getElementById('pixelVideoResult').currentTime=time;
+  document.getElementById('pixelVideoSource').currentTime=pixelVideoResultRange.start+time;
+  updateVideoCompareClock(time);
+}
+
+function finishVideoCompareSeek(){
+  const resume=videoCompareResumeSeek;videoCompareResumeSeek=false;
+  if(resume&&pixelVideoView==='compare') toggleVideoComparePlayback();
+}
+
+async function toggleVideoComparePlayback(){
+  if(pixelVideoView!=='compare'||pixelVideoJob) return;
+  const source=document.getElementById('pixelVideoSource'),output=document.getElementById('pixelVideoResult');
+  if(!output.paused){pauseVideoComparison();return;}
+  const id=++videoComparePlayId;
+  document.getElementById('videoComparePlay').disabled=true;
+  try{
+    await ensureVideoCompareAudio();
+    const signal=new AbortController().signal;
+    if(output.readyState<3) await waitVideoEvent(output,'canplay',signal,()=>{});
+    if(id!==videoComparePlayId||pixelVideoView!=='compare') return;
+    const time=output.ended||output.currentTime>=videoCompareDuration()-.04?0:output.currentTime;
+    if(output.currentTime!==time){
+      await waitVideoEvent(output,'seeked',signal,()=>{output.currentTime=time;});
+    } else if(output.seeking){
+      await waitVideoEvent(output,'seeked',signal,()=>{});
+    }
+    await seekPixelVideo(source,pixelVideoResultRange.start+time,signal);
+    if(id!==videoComparePlayId||pixelVideoView!=='compare') return;
+    await Promise.all([source.play(),output.play()]);
+    if(id!==videoComparePlayId||pixelVideoView!=='compare'){source.pause();output.pause();return;}
+    document.getElementById('videoComparePlay').textContent='一時停止';
+    document.getElementById('videoCompareStatus').textContent='同期再生中。音声は比較比率に合わせてクロスフェードします。';
+    const tick=()=>{
+      if(id!==videoComparePlayId||pixelVideoView!=='compare') return;
+      updateVideoCompareClock();
+      if(output.paused||output.ended||source.ended||output.currentTime>=videoCompareDuration()){
+        pauseVideoComparison();return;
+      }
+      const drift=source.currentTime-(pixelVideoResultRange.start+output.currentTime);
+      if(Math.abs(drift)>.15&&!source.seeking) source.currentTime=pixelVideoResultRange.start+output.currentTime;
+      else source.playbackRate=Math.max(.95,Math.min(1.05,1-drift*.5));
+      videoCompareFrame=requestAnimationFrame(tick);
+    };
+    tick();
+  }catch(e){
+    pauseVideoComparison();
+    document.getElementById('videoCompareStatus').textContent='比較再生を開始できませんでした。もう一度再生してください。'+(e.message||'');
+  }finally{document.getElementById('videoComparePlay').disabled=false;}
+}
+
+function initVideoComparison(){
+  const stage=document.getElementById('videoResultSection');
+  if(typeof ResizeObserver!=='undefined') new ResizeObserver(sizeVideoCompareStage).observe(stage.parentElement);
+  window.addEventListener('resize',sizeVideoCompareStage);
+  const move=e=>{
+    const bounds=stage.getBoundingClientRect();
+    setVideoCompareRatio((e.clientX-bounds.left)/bounds.width*100);
+  };
+  stage.addEventListener('pointerdown',e=>{
+    if(pixelVideoView!=='compare'||pixelVideoJob||e.button!==0) return;
+    stage.setPointerCapture(e.pointerId);move(e);
+  });
+  stage.addEventListener('pointermove',e=>{if(stage.hasPointerCapture(e.pointerId)&&pixelVideoView==='compare') move(e);});
+  for(const id of ['pixelVideoSource','pixelVideoResult']){
+    document.getElementById(id).addEventListener('play',()=>{
+      if(videoCompareAudio) videoCompareAudio.context.resume().catch(()=>{});
+    });
+    document.getElementById(id).addEventListener('waiting',()=>{
+      if(pixelVideoView==='compare'&&videoCompareFrame!==null){
+        pauseVideoComparison();
+        document.getElementById('videoCompareStatus').textContent='読み込み待ちで一時停止しました。再生ボタンで再開できます。';
+      }
+    });
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&pixelVideoView==='compare') pauseVideoComparison();});
+}
 
 const VIDEO_AUDIO_MODES={
   none:{label:'音声なし',hint:'変換後は無音です。音量バーが表示されても音声は含まれません。'},
@@ -3283,6 +3503,7 @@ function updateVideoAudioNote(){
   const note=document.getElementById('videoAudioNote');
   note.hidden=currentMedia!=='video';
   if(pixelVideoView==='source') note.textContent='原動画：読み込んだファイルの音声を再生します。';
+  else if(pixelVideoView==='compare') note.textContent='比較スライダー：左端は原動画・原音、右端は変換後・加工音。'+(pixelVideoResultAudio==='none'?'変換後は無音なので、右へ動かすほど音が小さくなります。':'左右の音声を滑らかに切り替えます。');
   else if(videoOutputKind==='frame') note.textContent='先頭フレームの静止画プレビューです。音声は動画変換後に確認できます。';
   else note.textContent=pixelVideoResultAudio==='none'
     ? '変換後：音声なし。音量バーが表示されても無音です。'
@@ -3382,7 +3603,7 @@ async function loadPixelVideo(input,generation=mediaLoadGeneration){
   const status=document.getElementById('videoStatus');
   document.getElementById('mediaConvertBtn').disabled=true;
   document.getElementById('videoPreviewBtn').disabled=true;
-  video.pause();
+  pauseVideoComparison();
   video.removeAttribute('src');
   video.load();
   if(pixelVideoInputURL) URL.revokeObjectURL(pixelVideoInputURL);
@@ -3398,6 +3619,7 @@ async function loadPixelVideo(input,generation=mediaLoadGeneration){
     video.muted=false;
     pixelVideoResultAudio='none';
     videoOutputKind=null;
+    pixelVideoResultRange=null;
     document.getElementById('videoSaveLink').hidden=true;
     document.getElementById('pixelVideoResult').pause();
     if(pixelVideoOutputURL){URL.revokeObjectURL(pixelVideoOutputURL);pixelVideoOutputURL=null;}
@@ -3547,7 +3769,7 @@ async function runPixelVideo(previewOnly){
   document.addEventListener('visibilitychange',onHidden);
   let audioContext=null,audioBuffer=null;
   try{
-    video.pause();
+    pauseVideoComparison();
     document.getElementById('pixelVideoResult').pause();
     if(withAudio){
       const Context=window.AudioContext||window.webkitAudioContext;
@@ -3614,6 +3836,7 @@ async function runPixelVideo(previewOnly){
     result.muted=!withAudio;
     pixelVideoResultAudio=audioMode;
     pixelVideoResultChannels=audioBuffer?.numberOfChannels||0;
+    pixelVideoResultRange={start,duration};
     videoOutputKind='video';
     setVideoView('result');
     const link=document.getElementById('videoSaveLink');
@@ -3633,6 +3856,7 @@ async function runPixelVideo(previewOnly){
 }
 
 initCompactUI();
+initVideoComparison();
 bindReactiveControls();
 switchTheme('dark');
 updateRetroSamplingHint();
