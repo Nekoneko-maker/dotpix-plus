@@ -79,16 +79,22 @@ body[data-theme="high-contrast"] {
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
 
 body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Noto Sans JP', sans-serif;
   min-height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 header {
-  padding: 18px 32px;
+  padding: 10px 18px;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: baseline;
@@ -119,30 +125,37 @@ header p { font-size: 12px; color: var(--text3); }
   text-transform: uppercase;
 }
 .theme-tabs { display: flex; gap: 4px; }
-.theme-tabs .tab { flex: 0 0 auto; min-width: 72px; }
+.theme-tabs .tab { flex: 0 0 auto; min-width: 58px; padding: 4px 8px; font-size: 11px; }
 
 .layout {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  min-height: calc(100vh - 59px);
+  grid-template-columns: 284px minmax(0,1fr);
+  flex: 1;
+  min-height: 0;
 }
 
 .sidebar {
   border-right: 1px solid var(--border);
-  padding: 16px 14px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
+.sidebar > * { flex-shrink: 0; }
 
 .main {
-  padding: 18px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
+.main > * { flex-shrink: 0; }
 .preview-panel {
   position: static;
   top: auto;
@@ -159,15 +172,15 @@ header p { font-size: 12px; color: var(--text3); }
 .upload-zone {
   border: 1.5px dashed var(--border2);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 10px;
   text-align: center;
   cursor: pointer;
   transition: all .2s;
   background: var(--surface);
 }
-.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: #1e2b10; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--surface2); }
 .upload-zone input { display: none; }
-.upload-icon { font-size: 24px; margin-bottom: 6px; }
+.upload-icon { display: none; }
 .upload-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
 .upload-text strong { color: var(--accent); font-weight: 500; }
 
@@ -179,13 +192,14 @@ header p { font-size: 12px; color: var(--text3); }
   overflow: hidden;
 }
 .section-header {
-  padding: 9px 13px;
+  padding: 8px 10px;
+  min-height: 34px;
   border-bottom: 1px solid var(--border);
   font-size: 11px;
   font-family: 'Space Mono', monospace;
-  color: var(--text3);
+  color: var(--text2);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.2px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -198,7 +212,7 @@ header p { font-size: 12px; color: var(--text3); }
   border-radius: 10px;
   font-weight: 700;
 }
-.section-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.section-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 
 /* Tabs */
 .tabs { display: flex; gap: 4px; }
@@ -252,7 +266,7 @@ input[type=number] {
 input[type=number]:focus { border-color: var(--accent); }
 
 /* Toggle */
-.toggle-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text2); }
+.toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); }
 .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
 .toggle input { display: none; }
 .toggle-track {
@@ -269,8 +283,8 @@ input[type=number]:focus { border-color: var(--accent); }
 
 /* Buttons */
 .btn {
-  padding: 9px 14px; border-radius: var(--radius-sm);
-  font-size: 13px; cursor: pointer; transition: all .15s;
+  padding: 7px 10px; border-radius: var(--radius-sm);
+  font-size: 12px; cursor: pointer; transition: all .15s;
   font-family: 'Noto Sans JP', sans-serif; font-weight: 500;
   border: 1px solid var(--border2); background: var(--surface2); color: var(--text);
 }
@@ -378,8 +392,10 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 }
 .flow-card.preset-card {
   position: relative;
-  padding-right: 42px;
+  padding: 0;
 }
+.preset-card #secPresets { border: 0; }
+.preset-card .section-header { padding-right: 38px; }
 .flow-card.compact {
   padding: 0;
   overflow: hidden;
@@ -396,11 +412,11 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 }
 .flow-card.compact #secPresets .section-header {
   border-bottom: 0;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 .preset-toggle-btn {
   position: absolute;
-  top: 10px;
+  top: 5px;
   right: 8px;
   width: 24px;
   height: 24px;
@@ -431,17 +447,17 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .quick-strip {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .quick-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .primary-action {
   width: 100%;
-  min-height: 42px;
-  font-size: 15px;
+  min-height: 40px;
+  font-size: 14px;
   font-weight: 700;
 }
 .secondary-actions {
@@ -454,6 +470,17 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   color: var(--text3);
   line-height: 1.4;
 }
+#sourceMeta { overflow-wrap: anywhere; }
+.media-save { text-align: center; text-decoration: none; }
+.preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text2); }
+.display-effects { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.display-effects summary, .help-details summary { cursor: pointer; padding: 6px 8px; font-size: 11px; color: var(--text2); }
+.help-details .hint { padding: 4px 8px; }
+.video-view { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.video-view video, .video-view canvas { display: block; width: 100%; max-height: calc(100dvh - 190px); object-fit: contain; }
+.preview-panel .canvas-view-tabs { flex-wrap: wrap; }
+.preview-panel .canvas-view-tabs .tab { flex: 0 1 auto; min-width: 64px; }
+:is(button, a, input, select, summary, [role="button"]):focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
 .compare-stage {
   position: relative;
   width: 100%;
@@ -554,20 +581,21 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 }
 .preset-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3,minmax(0,1fr));
   gap: 6px;
 }
 .preset-btn {
-  text-align: left;
-  min-height: 58px;
+  text-align: center;
+  min-height: 34px;
+  padding: 5px 2px;
 }
 .preset-btn strong {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text1);
 }
 .preset-btn span {
-  display: block;
+  display: none;
   font-size: 10px;
   color: var(--text3);
   margin-top: 3px;
@@ -692,8 +720,14 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .pce-res-toggle .tab { padding:2px 8px; font-size:10px; }
 
 @media (max-width: 700px) {
+  body { height: auto; overflow: visible; }
+  header { padding: 10px 12px; gap: 8px; }
+  .header-copy { flex-wrap: wrap; gap: 4px 12px; }
+  .header-copy p { font-size: 10px; }
   .layout { grid-template-columns: 1fr; }
-  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); overflow: visible; }
+  .main { overflow: visible; }
+  .tab, .btn, .section-header, summary { min-height: 38px; }
   .canvas-grid { grid-template-columns: 1fr; }
   .preview-panel {
     position: static;
@@ -729,54 +763,46 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 
     <div class="quick-strip">
       <div class="flow-card">
-        <div class="step-label">Step 1</div>
-        <div class="flow-title">画像を入れる</div>
-        <div class="flow-copy">まず素材を読み込んで、下のプリセットから近い雰囲気を選びます。</div>
+        <div class="flow-title">画像・動画を入れる</div>
         <div class="upload-zone" id="dropzone" onclick="document.getElementById('imgInput').click()" style="margin-top:8px">
-          <input type="file" id="imgInput" accept="image/*">
+          <input type="file" id="imgInput" accept="image/*,video/*,.mp4,.webm,.mov,.m4v">
           <div class="upload-icon">🖼️</div>
-          <div class="upload-text"><strong>クリックまたはドロップ</strong><br>PNG・JPG・GIF・WebP 対応</div>
+          <div class="upload-text"><strong>ファイルを選択 / ドロップ</strong><br><span class="mini-meta">PNG・JPG・GIF・WebP / MP4・WebM</span></div>
         </div>
-        <div class="mini-meta" id="sourceMeta" style="margin-top:6px">画像未読込</div>
+        <div class="mini-meta" id="sourceMeta" style="margin-top:6px">画像・動画未読込</div>
       </div>
       <div class="status-box" id="statusBox"></div>
 
       <div class="flow-card preset-card" id="presetFlowCard">
         <button class="preset-toggle-btn" id="presetToggleBtn" onclick="toggleSection('secPresets')" aria-label="プリセットを開閉">▼</button>
-        <div class="step-label">Step 2</div>
-        <div class="flow-title">プリセットを選ぶ</div>
-        <div class="flow-copy">最初はここから選ぶのが最短です。必要ならあとで詳細設定を開けます。</div>
-        <div class="section" id="secPresets" style="margin-top:8px">
-          <div class="section-header">
+        <div class="section" id="secPresets">
+          <div class="section-header collapsible" onclick="toggleSection('secPresets')">
             プリセット
-            <span class="badge" style="margin-left:4px;background:var(--accent2)">NEW</span>
           </div>
           <div class="section-body">
-            <div class="hint">1クリックで複数設定をまとめて反映します。画像読み込み後はそのまま再処理されます。</div>
             <div class="preset-grid">
-              <button class="btn preset-btn" onclick="applyPreset('portrait')"><strong>顔写真向け</strong><span>スマート補完 / 滑らか / 16色</span></button>
-              <button class="btn preset-btn" onclick="applyPreset('illustration')"><strong>イラスト向け</strong><span>輪郭重視 / Bayer / 24色</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('portrait')"><strong>顔写真</strong><span>スマート補完 / 滑らか / 16色</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('illustration')"><strong>イラスト</strong><span>輪郭重視 / Bayer / 24色</span></button>
               <button class="btn preset-btn" onclick="applyPreset('fc')"><strong>FC風</strong><span>FCパレット / 12色 / 非正方形向け</span></button>
               <button class="btn preset-btn" onclick="applyPreset('pce')"><strong>PCE風</strong><span>PCEパレット / 24色 / 彩度高め</span></button>
               <button class="btn preset-btn" onclick="applyPreset('pc98')"><strong>PC-98風</strong><span>PC-98パレット / 32色 / くっきり</span></button>
-              <button class="btn preset-btn" onclick="applyPreset('rpg')"><strong>RPGツクール素材</strong><span>NN拡大向け / 16色 / シャープ</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('rpg')"><strong>RPG素材</strong><span>NN拡大向け / 16色 / シャープ</span></button>
             </div>
           </div>
         </div>
       </div>
 
       <div class="flow-card">
-        <div class="step-label">Step 3</div>
-        <div class="flow-title">保存</div>
-        <div class="quick-actions" style="margin-top:8px">
-          <button class="btn accent primary-action" onclick="process(true)">ドット化する</button>
-          <div class="secondary-actions">
+        <div class="quick-actions">
+          <button class="btn accent primary-action" id="mediaConvertBtn" onclick="convertCurrentMedia()" disabled>ドット化する</button>
+          <div class="secondary-actions" id="imageSaveActions">
             <button class="btn blue" id="dlBtn" onclick="download()" disabled>PNG保存</button>
             <button class="btn" id="dlDotBtn" onclick="downloadDot()" disabled title="1ドット=1ピクセルで保存">等倍保存</button>
           </div>
+          <a class="btn blue media-save" id="videoSaveLink" hidden>動画を保存</a>
         </div>
         <div class="mini-meta" style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <span id="shareMeta">設定はブラウザに自動保存されます。</span>
+          <span id="shareMeta">設定を自動保存</span>
           <button onclick="resetSettings()" title="すべての設定をデフォルトに戻す" style="background:none;border:none;border-bottom:1px dashed var(--text3);padding:0 0 1px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;" onmouseover="this.style.color='var(--danger)';this.style.borderBottomColor='var(--danger)'" onmouseout="this.style.color='var(--text2)';this.style.borderBottomColor='var(--text3)'">設定リセット</button>
         </div>
       </div>
@@ -1150,11 +1176,47 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       </div>
     </div>
 
+    <div class="section collapsed" id="secVideo">
+      <div class="section-header collapsible" onclick="toggleSection('secVideo')">
+        動画をピクセル化 <span class="collapse-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="hint">最大30秒 / CRTなし / 共通パレット</div>
+        <div class="mini-meta" id="videoSourceInfo">動画未読込</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label class="hint">開始（秒）<input type="number" id="videoStart" min="0" value="0" step="0.1"></label>
+          <label class="hint">終了（秒）<input type="number" id="videoEnd" min="0" value="5" step="0.1"></label>
+        </div>
+        <label class="label-row">FPS
+          <select id="videoFPS" class="btn" style="padding:4px"><option>6</option><option selected>12</option><option>24</option><option>30</option></select>
+        </label>
+        <label class="label-row" for="videoAudioMode">音声
+          <select id="videoAudioMode" class="btn" style="max-width:190px;padding:4px" onchange="updateVideoAudioHint()">
+            <option value="none">音声なし</option>
+            <option value="original">元音声（音質加工なし）</option>
+            <optgroup label="サンプリング周波数">
+              <option value="sr44">44.1kHz</option><option value="sr22">22.05kHz</option><option value="sr11">11.025kHz</option>
+            </optgroup>
+            <optgroup label="レトロな質感（実機再現ではありません）">
+              <option value="fc">FC風</option><option value="pce">PCE風</option><option value="pc98">PC-98 PCM風</option><option value="sfc">SFC風</option>
+            </optgroup>
+          </select>
+        </label>
+        <div class="mini-meta" id="videoAudioHint">変換後は無音です。音量バーが表示されても音声は含まれません。</div>
+        <div class="toggle-row"><label class="toggle"><input type="checkbox" id="videoDotSize" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>等倍出力（1ドット = 1px）</div>
+        <details class="help-details"><summary>動画出力について</summary><div class="hint">再現性重視がOFFなら、変換ごとに色選びが変わります。原寸は長辺1920pxまで。WebMまたはMP4で保存します。音声の周波数指定は加工時の値で、保存時の周波数はコーデックに従います。元音声も保存時に再圧縮します。音声付き変換の入力は3分・128MBまで。書き出し中はこの画面を表示したままにしてください。</div></details>
+        <button class="btn" id="videoPreviewBtn" onclick="runPixelVideo(true)" disabled>先頭フレームを確認</button>
+        <button class="btn danger" id="videoCancelBtn" onclick="cancelPixelVideo()" hidden>キャンセル</button>
+        <progress id="videoProgress" value="0" max="1" style="width:100%" hidden></progress>
+        <div class="mini-meta" id="videoStatus" role="status" aria-live="polite"></div>
+      </div>
+    </div>
   </aside>
 
   <!-- MAIN -->
   <main class="main">
-    <div class="preview-panel">
+    <div class="preview-panel" aria-label="画像・動画プレビュー">
+      <div class="preview-heading">プレビュー <span id="mediaTypeLabel" class="mini-meta">画像・動画を読み込んでください</span></div>
       <!-- View tabs -->
       <div class="tabs canvas-view-tabs">
         <button class="tab active" id="btnBoth" onclick="setView('both')">比較</button>
@@ -1162,10 +1224,14 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <button class="tab" id="btnOrig" onclick="setView('orig')">原画</button>
         <button class="tab" id="btnDot" onclick="setView('dot')">ドット絵</button>
         <button class="tab" id="btnExport" onclick="setView('export')">拡大プレビュー</button>
+        <button class="tab" id="btnVideoSource" onclick="setVideoView('source')" hidden>原動画</button>
+        <button class="tab" id="btnVideoResult" onclick="setVideoView('result')" hidden disabled>変換後</button>
       </div>
 
       <!-- CRT Filter controls -->
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:var(--radius-sm);font-size:11px;color:var(--text2)">
+      <details class="display-effects" id="displayEffects">
+        <summary>表示効果 <span class="mini-meta">CRT / 非正方形px</span></summary>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px;font-size:11px;color:var(--text2)">
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;color:var(--text1)">
           <input type="checkbox" id="crtToggle" onchange="updateCRT()"> 📺 CRT
         </label>
@@ -1190,13 +1256,20 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
           <label style="cursor:pointer"><input type="radio" name="pceRes" value="256" checked onchange="updateCRT()"> 256</label>
           <label style="cursor:pointer"><input type="radio" name="pceRes" value="320" onchange="updateCRT()"> 320</label>
         </span>
-      </div>
+        </div>
+      </details>
 
       <div class="canvas-grid" id="canvasRow">
         <div class="canvas-wrap" style="grid-column:1/-1">
           <div class="canvas-empty">画像を読み込んでドット化しよう</div>
         </div>
       </div>
+      <div id="videoResultSection" class="video-view" hidden>
+        <video id="pixelVideoSource" controls muted playsinline preload="auto" hidden></video>
+        <canvas id="videoFramePreview" style="width:100%;max-height:420px;object-fit:contain" hidden></canvas>
+        <video id="pixelVideoResult" controls playsinline style="width:100%;max-height:420px;image-rendering:pixelated" hidden></video>
+      </div>
+      <div class="mini-meta" id="videoAudioNote" role="status" hidden></div>
     </div>
 
     <!-- Palette -->
@@ -1227,6 +1300,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 <script>
 // ===== VARS =====
 let origImg=null, dotCanvas=null, viewMode='both', specMode='dotsize', picking=false, priorityColors=[];
+let currentMedia='image', mediaLoadGeneration=0, videoOutputKind=null;
 let pixelMode='A', ditherMode='none', bayerSize='4x4';
 let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98'
 let customMode=false, customPaletteFull=[], customCountVal2=16;
@@ -1274,6 +1348,7 @@ function setStatus(message='',type='warn'){
 
 function applyUIState({reprocess=false,rerender=true,refreshExport=false,refreshCRT=false}={}){
   if(suppressAutoApply) return;
+  if(currentMedia==='video'){scheduleSettingsSave();return;}
   if(reprocess){
     process(true);
     scheduleSettingsSave();
@@ -1287,6 +1362,7 @@ function applyUIState({reprocess=false,rerender=true,refreshExport=false,refresh
 
 function queueReprocess(delay=220){
   if(suppressAutoApply) return;
+  if(currentMedia==='video') return;
   if(!origImg || !dotCanvas) return;
   clearTimeout(retroDebounce);
   retroDebounce=setTimeout(()=>applyUIState({reprocess:true}),delay);
@@ -1402,6 +1478,7 @@ function getSettingsPayload(){
       pceRes:document.querySelector('input[name="pceRes"]:checked')?.value || '256'
     },
     compareSliderPos,
+    videoAudioMode:document.getElementById('videoAudioMode').value,
     customPaletteFull:customPaletteFull.map(c=>[...c])
   };
 }
@@ -1412,6 +1489,8 @@ function applySettingsPayload(payload,{reprocess=false}={}){
   suppressAutoApply=true;
   try{
     switchTheme(payload.theme||'dark');
+    document.getElementById('videoAudioMode').value=VIDEO_AUDIO_MODES[payload.videoAudioMode]?payload.videoAudioMode:'none';
+    updateVideoAudioHint();
     switchSpec(payload.specMode||'dotsize');
     syncDotSize(payload.dotSize||4);
     syncDotCount(payload.dotCount||64);
@@ -1471,7 +1550,7 @@ function applySettingsPayload(payload,{reprocess=false}={}){
   updateRetroNoteVisibility();
   renderPriorityList();
   setView(viewMode);
-  if(reprocess && origImg) process(true);
+  if(reprocess && origImg && currentMedia==='image') process(true);
   else applyUIState({rerender:true,refreshExport:true,refreshCRT:true});
 }
 
@@ -1479,7 +1558,7 @@ function saveSettings(){
   try{
     localStorage.setItem(SETTINGS_STORAGE_KEY,JSON.stringify(getSettingsPayload()));
     const meta=document.getElementById('shareMeta');
-    if(meta) meta.textContent='設定はブラウザに自動保存されています。';
+    if(meta) meta.textContent='設定を自動保存済み';
   } catch(_err){}
 }
 
@@ -1558,6 +1637,8 @@ function renderHistorySnapshots(){
     const card=document.createElement('button');
     card.className='history-card';
     card.type='button';
+    card.title=`${snap.timestamp} / ${snap.settings.pixelMode} / ${snap.settings.palNum}色 / クリックで復元`;
+    card.setAttribute('aria-label',card.title);
     card.onclick=()=>restoreSnapshot(index);
     const img=document.createElement('img');
     img.className='history-thumb';
@@ -1589,11 +1670,34 @@ dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
 dz.addEventListener('drop',e=>{
   e.preventDefault();dz.classList.remove('drag');
   const f=e.dataTransfer.files[0];
-  if(f&&f.type.startsWith('image/'))loadFile(f);
+  if(f) loadMediaFile(f);
 });
-document.getElementById('imgInput').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0])});
+document.getElementById('imgInput').addEventListener('change',e=>{
+  const file=e.target.files[0];
+  e.target.value='';
+  if(file) loadMediaFile(file);
+});
 
-function loadFile(f){
+async function loadMediaFile(file){
+  if(pixelVideoJob) return;
+  const generation=++mediaLoadGeneration;
+  document.getElementById('mediaConvertBtn').disabled=true;
+  if(file.type.startsWith('video/') || (!file.type && /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name))){
+    const section=document.getElementById('secVideo');
+    section.classList.remove('collapsed');
+    section.querySelector('.section-header').setAttribute('aria-expanded','true');
+    document.getElementById('sourceMeta').textContent=`動画：${file.name} / 読み込み中...`;
+    setStatus('');
+    await loadPixelVideo({files:[file]},generation);
+  } else if(file.type.startsWith('image/')){
+    loadFile(file,generation);
+  } else {
+    setStatus('画像または動画を選択してください。画像はPNG / JPG、動画はMP4 / WebMなどに対応しています。','error');
+    updateMediaActions();
+  }
+}
+
+function loadFile(f,generation=mediaLoadGeneration){
   if(!f.type.startsWith('image/')){
     setStatus('画像ファイルを選択してください。PNG / JPG / GIF / WebP を推奨します。','error');
     return;
@@ -1602,12 +1706,15 @@ function loadFile(f){
   r.onload=ev=>{
     const img=new Image();
     img.onload=()=>{
+      if(generation!==mediaLoadGeneration) return;
       const pixels=img.width*img.height;
       if(pixels>MAX_IMAGE_PIXELS){
         setStatus(`画像サイズが大きすぎます。最大 ${Math.round(MAX_IMAGE_PIXELS/1000000)}MP 程度までにしてください。現在: ${img.width}×${img.height}`,'error');
+        updateMediaActions();
         return;
       }
       origImg=img;
+      setMediaMode('image');
       dotCanvas=null;
       currentPalette=[];
       resetProcessingCaches();
@@ -1622,14 +1729,18 @@ function loadFile(f){
       }
       applyUIState({rerender:true,refreshExport:true,refreshCRT:true});
     };
+    img.onerror=()=>{if(generation===mediaLoadGeneration){setStatus('画像を開けません。PNG / JPGなど別形式で試してください。','error');updateMediaActions();}};
     img.src=ev.target.result;
   };
+  r.onerror=()=>{setStatus('ファイルを読み込めませんでした。もう一度選択してください。','error');updateMediaActions();};
   r.readAsDataURL(f);
 }
 
 // ===== COLLAPSIBLE SECTIONS =====
 function toggleSection(id){
-  document.getElementById(id).classList.toggle('collapsed');
+  const section=document.getElementById(id);
+  section.classList.toggle('collapsed');
+  section.querySelector('.section-header')?.setAttribute('aria-expanded',String(!section.classList.contains('collapsed')));
   if(id==='secPresets') syncPresetCardCompact();
 }
 
@@ -1643,6 +1754,7 @@ function syncPresetCardCompact(){
   if(btn){
     btn.textContent=collapsed?'►':'▼';
     btn.setAttribute('aria-label',collapsed?'プリセットを開く':'プリセットを閉じる');
+    btn.setAttribute('aria-expanded',String(!collapsed));
   }
 }
 
@@ -2363,6 +2475,9 @@ function createDeterministicRetroCenters(fullPal,sample,n,brightBias){
 
 // レトロパレットに制約した k-means。通常はランダム性を残し、必要時のみ再現性重視にする。
 function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10,deterministic=false){
+  if(!Array.isArray(fullPal)||!fullPal.length){
+    return quantizeWithPriority(data,n,priorityColors,parseInt(document.getElementById('weightSlider').value)||4,deterministic);
+  }
   if(n>=fullPal.length) return [...fullPal];
   const d=data.data, np=d.length>>2;
   // ① サブサンプリング（最大4096ピクセル）
@@ -2401,6 +2516,7 @@ function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10,deterministic=fa
 }
 
 function switchRetroMode(m){
+  if(!['off','fc','pce','pc98'].includes(m)) m='off';
   retroMode=m;
   ['Off','FC','PCE','PC98'].forEach(n=>{
     const el=document.getElementById('retroTab'+n);
@@ -2933,15 +3049,24 @@ function loadImageFromFile(file){
   });
 }
 
-function processOneImage(img,forceDeterministic){
+function selectProcessingPalette(data,det){
+  if(customMode&&customPaletteFull.length>0){
+    return reduceRetroKMeans(data,customPaletteFull,customCountVal2,0,10,det);
+  }
+  const retroPalette=getRetroPalette();
+  if(retroPalette?.length){
+    return reduceRetroKMeans(data,retroPalette,Math.max(2,retroCountVal[retroMode]||32),retroBrightBias,10,det);
+  }
+  return quantizeWithPriority(data,Math.max(2,parseInt(document.getElementById('palNumInline').value)||16),priorityColors,parseInt(document.getElementById('weightSlider').value)||4,det);
+}
+
+function processOneImage(img,forceDeterministic,fixedPalette=null,dotOnly=false){
   const det=forceDeterministic?true:retroDeterministic;
   const savedOrigImg=origImg;
   origImg=img;
   try{
     const [sw,sh]=getSmallSize();
     const gray=document.getElementById('grayToggle').checked;
-    const palN=Math.max(2,parseInt(document.getElementById('palNumInline').value)||16);
-    const weight=parseInt(document.getElementById('weightSlider').value)||4;
 
     const small=document.createElement('canvas');small.width=sw;small.height=sh;
     const ctx=small.getContext('2d');ctx.drawImage(img,0,0,sw,sh);
@@ -2955,16 +3080,7 @@ function processOneImage(img,forceDeterministic){
       ctx.putImageData(data,0,0);data=ctx.getImageData(0,0,sw,sh);
     }
 
-    let palette;
-    if(customMode&&customPaletteFull.length>0){
-      palette=reduceRetroKMeans(data,customPaletteFull,customCountVal2,0,10,det);
-    } else if(retroMode==='off'){
-      palette=quantizeWithPriority(data,palN,priorityColors,weight,det);
-    } else {
-      const fullPal=getRetroPalette();
-      const n=Math.max(2,retroCountVal[retroMode]||32);
-      palette=reduceRetroKMeans(data,fullPal,n,retroBrightBias,10,det);
-    }
+    const palette=fixedPalette||selectProcessingPalette(data,det);
 
     if(pixelMode==='A'){
       mapToPalette(data,palette);
@@ -2974,10 +3090,11 @@ function processOneImage(img,forceDeterministic){
       processSmartMode(ctx,data,sw,sh,palette,edgeStr,ditherMode);
     }
 
+    if(dotOnly) return {dot:small,sw,sh,palette};
     const out=document.createElement('canvas');out.width=img.width;out.height=img.height;
     const octx=out.getContext('2d');octx.imageSmoothingEnabled=false;
     octx.drawImage(small,0,0,out.width,out.height);
-    return {full:out,dot:small,sw,sh};
+    return {full:out,dot:small,sw,sh,palette};
   } finally {
     origImg=savedOrigImg;
   }
@@ -3049,6 +3166,452 @@ async function runBatch(){
   btn.disabled=false;
 }
 
+// ===== VIDEO =====
+function updateMediaActions(){
+  const button=document.getElementById('mediaConvertBtn');
+  button.textContent=currentMedia==='video'?'動画を変換':'ドット化する';
+  button.disabled=currentMedia==='video'?!document.getElementById('pixelVideoSource').videoWidth:!origImg;
+}
+
+function convertCurrentMedia(){
+  if(currentMedia==='video') runPixelVideo(false);
+  else process(true);
+}
+
+function setMediaMode(mode){
+  currentMedia=mode;
+  const isVideo=mode==='video';
+  document.getElementById('mediaTypeLabel').textContent=isVideo?'動画':'画像';
+  document.getElementById('imageSaveActions').hidden=isVideo;
+  document.getElementById('secVideo').hidden=!isVideo;
+  document.getElementById('canvasRow').hidden=isVideo;
+  document.getElementById('displayEffects').hidden=isVideo;
+  document.getElementById('videoResultSection').hidden=!isVideo;
+  document.getElementById('videoAudioNote').hidden=!isVideo;
+  ['Both','Slider','Orig','Dot','Export'].forEach(n=>document.getElementById('btn'+n).hidden=isVideo);
+  ['Source','Result'].forEach(n=>document.getElementById('btnVideo'+n).hidden=!isVideo);
+  document.getElementById('videoSaveLink').hidden=!isVideo||videoOutputKind!=='video';
+  if(isVideo){
+    document.getElementById('paletteSection').style.display='none';
+    document.getElementById('historySection').hidden=true;
+    setVideoView('source');
+  } else {
+    document.getElementById('pixelVideoSource').pause();
+    document.getElementById('pixelVideoResult').pause();
+    document.getElementById('historySection').hidden=false;
+  }
+  updateMediaActions();
+}
+
+function setVideoView(view){
+  const result=view==='result'&&!!videoOutputKind;
+  pixelVideoView=result?'result':'source';
+  const source=document.getElementById('pixelVideoSource');
+  const output=document.getElementById('pixelVideoResult');
+  source.pause();output.pause();
+  source.hidden=result;
+  output.hidden=!result||videoOutputKind!=='video';
+  document.getElementById('videoFramePreview').hidden=!result||videoOutputKind!=='frame';
+  document.getElementById('btnVideoSource').className='tab'+(!result?' active':'');
+  document.getElementById('btnVideoResult').className='tab'+(result?' active':'');
+  document.getElementById('btnVideoResult').disabled=!videoOutputKind;
+  updateVideoAudioNote();
+}
+
+function initCompactUI(){
+  const sidebar=document.querySelector('.sidebar');
+  sidebar.insertBefore(document.getElementById('secVideo'),document.getElementById('secDotSize'));
+  document.getElementById('secVideo').hidden=true;
+  document.querySelectorAll('.section-header.collapsible').forEach(header=>{
+    const section=header.closest('.section');
+    header.tabIndex=0;header.setAttribute('role','button');
+    header.setAttribute('aria-expanded',String(!section.classList.contains('collapsed')));
+    header.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();header.click();}});
+  });
+  document.querySelectorAll('.preset-btn').forEach(btn=>{btn.title=btn.textContent.trim();});
+  document.querySelectorAll('div.tab[onclick]').forEach(tab=>{
+    tab.tabIndex=0;tab.setAttribute('role','button');
+    tab.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tab.click();}});
+  });
+  const drop=document.getElementById('dropzone');
+  drop.tabIndex=0;drop.setAttribute('role','button');drop.setAttribute('aria-label','画像または動画を選択');
+  drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();document.getElementById('imgInput').click();}});
+}
+
+let pixelVideoInputURL=null, pixelVideoOutputURL=null, pixelVideoJob=null;
+let pixelVideoFile=null, pixelVideoResultAudio='none', pixelVideoView='source';
+let pixelVideoName='video', pixelVideoLoadId=0;
+
+const VIDEO_AUDIO_MODES={
+  none:{label:'音声なし',hint:'変換後は無音です。音量バーが表示されても音声は含まれません。'},
+  original:{label:'元音声',hint:'音質加工なし。選択区間の音声を保持します（保存時に再圧縮）。'},
+  sr44:{label:'44.1kHz',rate:44100,bits:16,hint:'44.1kHz / 16bit相当 / ステレオを保持。'},
+  sr22:{label:'22.05kHz',rate:22050,bits:16,hint:'22.05kHz / 16bit相当。高音域を抑えた音。'},
+  sr11:{label:'11.025kHz',rate:11025,bits:16,hint:'11.025kHz / 16bit相当。こもった低帯域の音。'},
+  fc:{label:'FC風',rate:11025,bits:7,mono:true,delta:true,cutoff:4500,hint:'11.025kHz / モノラル / 7bit・差分風の質感。実機再現ではありません。'},
+  pce:{label:'PCE風',rate:22050,bits:5,mono:true,cutoff:9000,hint:'22.05kHz / モノラル / 5bitの粗いPCM風。実機再現ではありません。'},
+  pc98:{label:'PC-98 PCM風',rate:22050,bits:8,cutoff:9000,hint:'22.05kHz / 8bit PCM風。FM音源の再現ではありません。'},
+  sfc:{label:'SFC風',rate:32000,bits:16,cutoff:7000,hint:'32kHz / 16bit相当 / 高域を柔らかく。BRR・実機音源の再現ではありません。'}
+};
+
+function updateVideoAudioHint(){
+  const mode=document.getElementById('videoAudioMode').value;
+  document.getElementById('videoAudioHint').textContent=(VIDEO_AUDIO_MODES[mode]||VIDEO_AUDIO_MODES.none).hint;
+  if(!suppressAutoApply) scheduleSettingsSave();
+}
+
+function updateVideoAudioNote(){
+  const note=document.getElementById('videoAudioNote');
+  note.hidden=currentMedia!=='video';
+  if(pixelVideoView==='source') note.textContent='原動画：読み込んだファイルの音声を再生します。';
+  else if(videoOutputKind==='frame') note.textContent='先頭フレームの静止画プレビューです。音声は動画変換後に確認できます。';
+  else note.textContent=pixelVideoResultAudio==='none'
+    ? '変換後：音声なし。音量バーが表示されても無音です。'
+    : `変換後の音声：${VIDEO_AUDIO_MODES[pixelVideoResultAudio].label}（選択区間に合わせて出力）。`;
+}
+
+function videoAudioTask(task,signal){
+  return new Promise((resolve,reject)=>{
+    const abort=()=>reject(new DOMException('キャンセルしました。','AbortError'));
+    if(signal.aborted){abort();return;}
+    signal.addEventListener('abort',abort,{once:true});
+    task.then(value=>{signal.removeEventListener('abort',abort);resolve(value);},err=>{signal.removeEventListener('abort',abort);reject(err);});
+  });
+}
+
+async function prepareVideoAudio(mode,context,start,duration,signal){
+  if(!pixelVideoFile) throw new Error('動画をもう一度読み込んでください。');
+  if(pixelVideoFile.size>128*1024*1024 || document.getElementById('pixelVideoSource').duration>180){
+    throw new Error('音声付き変換は入力3分・128MBまでです。短く切り出すか「音声なし」を選んでください。');
+  }
+  let decoded;
+  try{
+    const bytes=await videoAudioTask(pixelVideoFile.arrayBuffer(),signal);
+    videoCheck(signal);
+    decoded=await videoAudioTask(context.decodeAudioData(bytes),signal);
+  }catch(e){
+    if(e.name==='AbortError') throw e;
+    throw new Error('音声を読み取れません。音声のない動画は「音声なし」を選択してください。音声付きの場合はAAC音声のMP4やOpus音声のWebMで試してください。');
+  }
+  videoCheck(signal);
+  if(start>=decoded.duration) throw new Error('選択区間に音声がありません。「音声なし」を選ぶか開始位置を変更してください。');
+  const config=VIDEO_AUDIO_MODES[mode];
+  const rate=config.rate||decoded.sampleRate;
+  const channels=config.mono?1:Math.min(2,decoded.numberOfChannels);
+  const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!Offline) throw new Error('このブラウザは音声加工に対応していません。「音声なし」を選ぶか別のブラウザで試してください。');
+  const offline=new Offline(channels,Math.max(1,Math.ceil(duration*rate)),rate);
+  const source=offline.createBufferSource();source.buffer=decoded;
+  let last=source;
+  if(config.cutoff){
+    const filter=offline.createBiquadFilter();filter.type='lowpass';filter.frequency.value=config.cutoff;filter.Q.value=0.707;
+    last.connect(filter);last=filter;
+  }
+  last.connect(offline.destination);
+  source.start(0,start,Math.min(duration,decoded.duration-start));
+  const buffer=await videoAudioTask(offline.startRendering(),signal);
+  videoCheck(signal);
+  for(let ch=0;ch<buffer.numberOfChannels;ch++){
+    const data=buffer.getChannelData(ch);
+    let level=64;
+    for(let i=0;i<data.length;i++){
+      const sample=Math.max(-1,Math.min(1,data[i]));
+      if(config.delta){
+        // Bounded per-sample changes suggest DPCM without emulating the chip.
+        const target=sample*0.85*64+64;
+        level=Math.max(0,Math.min(126,level+(target-level>1?2:target-level<-1?-2:0)));
+        data[i]=Math.max(-1,Math.min(1,(level-64)/64/0.85));
+      } else if(config.bits){
+        const scale=2**(config.bits-1);
+        data[i]=Math.max(-1,Math.min(1-1/scale,Math.round(sample*scale)/scale));
+      }
+    }
+  }
+  return buffer;
+}
+
+function videoCheck(signal){
+  if(signal.aborted) throw new DOMException('キャンセルしました。','AbortError');
+}
+
+function waitVideoEvent(target,event,signal,action){
+  return new Promise((resolve,reject)=>{
+    let timer;
+    const clean=()=>{
+      clearTimeout(timer);
+      target.removeEventListener(event,done);
+      target.removeEventListener('error',failed);
+      signal?.removeEventListener('abort',abort);
+    };
+    const done=()=>{clean();resolve();};
+    const failed=()=>{clean();reject(new Error('動画を読み取れません。別のMP4 / WebMを試してください。'));};
+    const abort=()=>{clean();reject(new DOMException('キャンセルしました。','AbortError'));};
+    target.addEventListener(event,done,{once:true});
+    target.addEventListener('error',failed,{once:true});
+    signal?.addEventListener('abort',abort,{once:true});
+    timer=setTimeout(()=>{clean();reject(new Error('動画の読み込みがタイムアウトしました。短い動画を試してください。'));},15000);
+    if(signal?.aborted){abort();return;}
+    try{action();}catch(e){clean();reject(e);}
+  });
+}
+
+async function loadPixelVideo(input,generation=mediaLoadGeneration){
+  const file=input.files[0];
+  if(!file) return;
+  const id=++pixelVideoLoadId;
+  const video=document.getElementById('pixelVideoSource');
+  const status=document.getElementById('videoStatus');
+  document.getElementById('mediaConvertBtn').disabled=true;
+  document.getElementById('videoPreviewBtn').disabled=true;
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+  if(pixelVideoInputURL) URL.revokeObjectURL(pixelVideoInputURL);
+  pixelVideoInputURL=URL.createObjectURL(file);
+  status.textContent='動画を読み込み中...';
+  try{
+    await waitVideoEvent(video,'loadeddata',null,()=>{video.src=pixelVideoInputURL;video.load();});
+    if(id!==pixelVideoLoadId||generation!==mediaLoadGeneration) return;
+    if(!Number.isFinite(video.duration)||video.duration<=0) throw new Error('長さを取得できません。通常のMP4 / WebMファイルを選んでください。');
+    if(video.videoWidth*video.videoHeight>MAX_IMAGE_PIXELS) throw new Error('動画が大きすぎます。4K以下に縮小して読み込んでください。');
+    pixelVideoName=file.name.replace(/\.[^.]+$/,'');
+    pixelVideoFile=file;
+    video.muted=false;
+    pixelVideoResultAudio='none';
+    videoOutputKind=null;
+    document.getElementById('videoSaveLink').hidden=true;
+    document.getElementById('pixelVideoResult').pause();
+    if(pixelVideoOutputURL){URL.revokeObjectURL(pixelVideoOutputURL);pixelVideoOutputURL=null;}
+    setMediaMode('video');
+    document.getElementById('videoSourceInfo').textContent=`${video.videoWidth} × ${video.videoHeight} / ${video.duration.toFixed(2)}秒`;
+    document.getElementById('sourceMeta').textContent=`動画：${file.name} / ${video.videoWidth} × ${video.videoHeight} / ${video.duration.toFixed(2)}秒`;
+    document.getElementById('videoStart').value=0;
+    document.getElementById('videoEnd').value=Math.min(5,video.duration);
+    document.getElementById('videoEnd').max=video.duration;
+    document.getElementById('videoStart').max=video.duration;
+    document.getElementById('mediaConvertBtn').disabled=false;
+    document.getElementById('videoPreviewBtn').disabled=false;
+    status.textContent='設定を調整して、先頭フレームか動画を変換できます。';
+  }catch(e){
+    if(id===pixelVideoLoadId&&generation===mediaLoadGeneration){
+      status.textContent=e.message;
+      document.getElementById('sourceMeta').textContent=`動画：${file.name} / 読み込み失敗`;
+      setStatus(e.message,'error');
+      updateMediaActions();
+    }
+  }
+}
+
+function cancelPixelVideo(){pixelVideoJob?.abort();}
+
+function setVideoBusy(busy){
+  // Lock processing settings while asynchronous video work uses them.
+  document.querySelectorAll('.sidebar > *').forEach(el=>{if(el.id!=='secVideo') el.inert=busy;});
+  document.querySelector('main').inert=busy;
+  document.querySelectorAll('#secVideo input, #secVideo select, #mediaConvertBtn, #videoPreviewBtn').forEach(el=>el.disabled=busy);
+  document.getElementById('videoCancelBtn').hidden=!busy;
+  document.getElementById('videoProgress').hidden=!busy;
+}
+
+async function seekPixelVideo(video,time,signal){
+  videoCheck(signal);
+  if(Math.abs(video.currentTime-time)<0.00001 && video.readyState>=2) return;
+  await waitVideoEvent(video,'seeked',signal,()=>{video.currentTime=time;});
+}
+
+function recordPixelFrames(canvas,frames,fps,duration,mime,signal,onProgress,audioContext=null,audioBuffer=null){
+  return new Promise((resolve,reject)=>{
+    let stream,recorder,timer,audioSource,audioDestination;
+    const chunks=[];
+    let failure=null,settled=false;
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    const draw=i=>{ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(frames[i],0,0,canvas.width,canvas.height);};
+    const clean=()=>{
+      clearTimeout(timer);
+      signal.removeEventListener('abort',abort);
+      if(audioSource){try{audioSource.stop();}catch(_e){}audioSource.disconnect();}
+      audioDestination?.disconnect();
+      stream?.getTracks().forEach(t=>t.stop());
+    };
+    const finish=()=>{
+      if(settled) return;
+      settled=true;clean();
+      if(failure) reject(failure);
+      else if(!chunks.length) reject(new Error('動画を生成できませんでした。FPSや解像度を下げて試してください。'));
+      else resolve(new Blob(chunks,{type:recorder.mimeType||mime}));
+    };
+    const stop=err=>{
+      if(err) failure=err;
+      clearTimeout(timer);
+      if(recorder && recorder.state!=='inactive') recorder.stop();
+      else finish();
+    };
+    const abort=()=>stop(new DOMException('キャンセルしました。','AbortError'));
+    try{
+      videoCheck(signal);
+      draw(0);
+      stream=canvas.captureStream(fps);
+      if(audioBuffer){
+        audioDestination=audioContext.createMediaStreamDestination();
+        audioDestination.channelCount=audioBuffer.numberOfChannels;
+        audioDestination.channelCountMode='explicit';
+        audioSource=audioContext.createBufferSource();audioSource.buffer=audioBuffer;
+        audioSource.connect(audioDestination);
+        audioDestination.stream.getAudioTracks().forEach(track=>stream.addTrack(track));
+      }
+      recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:6000000,...(audioBuffer?{audioBitsPerSecond:128000}:{})});
+      recorder.ondataavailable=e=>{if(e.data.size) chunks.push(e.data);};
+      recorder.onstop=finish;
+      recorder.onerror=()=>stop(new Error('動画の書き出しに失敗しました。FPSや解像度を下げて試してください。'));
+      signal.addEventListener('abort',abort,{once:true});
+      // Some recorders wait for audio data before emitting "start".
+      recorder.start(1000);
+      const started=audioBuffer?audioContext.currentTime:performance.now()/1000;
+      if(audioSource) audioSource.start(started);
+      const tick=()=>{
+        if(signal.aborted){abort();return;}
+        if(audioBuffer&&audioContext.state!=='running'){
+          stop(new Error('音声処理が中断されました。画面を表示した状態でもう一度変換してください。'));return;
+        }
+        const elapsed=(audioBuffer?audioContext.currentTime:performance.now()/1000)-started;
+        if(elapsed>=duration){stop();return;}
+        draw(Math.min(frames.length-1,Math.floor(elapsed*fps)));
+        onProgress(elapsed/duration);
+        timer=setTimeout(tick,Math.max(1,1000/fps/2));
+      };
+      tick();
+    }catch(e){failure=e;finish();}
+  });
+}
+
+async function runPixelVideo(previewOnly){
+  if(pixelVideoJob) return;
+  const video=document.getElementById('pixelVideoSource');
+  const status=document.getElementById('videoStatus');
+  const progress=document.getElementById('videoProgress');
+  const start=Number(document.getElementById('videoStart').value);
+  const end=Number(document.getElementById('videoEnd').value);
+  const fps=Number(document.getElementById('videoFPS').value);
+  const dotSize=document.getElementById('videoDotSize').checked;
+  const audioMode=document.getElementById('videoAudioMode').value;
+  const withAudio=!previewOnly&&audioMode!=='none';
+  const duration=end-start;
+  if(!video.videoWidth||!Number.isFinite(start)||!Number.isFinite(end)||start<0||end>video.duration||duration<=0||duration>30){
+    status.textContent='開始・終了を動画の範囲内に設定してください。変換区間は0秒超〜30秒です。';return;
+  }
+  const mimeTypes=withAudio?['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4']:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  const mime=typeof MediaRecorder==='undefined'?'':mimeTypes.find(t=>MediaRecorder.isTypeSupported(t));
+  if(!previewOnly && (!mime || !HTMLCanvasElement.prototype.captureStream)){
+    status.textContent='このブラウザは動画保存に対応していません。Chromeなどで開き直してください。先頭フレームの確認は利用できます。';return;
+  }
+  const controller=new AbortController();
+  pixelVideoJob=controller;
+  const signal=controller.signal;
+  const frames=[];
+  const raw=document.createElement('canvas');
+  raw.width=video.videoWidth;raw.height=video.videoHeight;
+  const ctx=raw.getContext('2d');
+  const oldOrig=origImg;
+  let sw,sh;
+  try{origImg=raw;[sw,sh]=getSmallSize();}finally{origImg=oldOrig;}
+  const count=Math.ceil(duration*fps);
+  if(!previewOnly && (count*sw*sh>24000000 || (!dotSize && Math.max(raw.width,raw.height)>1920))){
+    pixelVideoJob=null;
+    status.textContent='処理量が大きすぎます。区間やFPSを減らす、ドットを粗くする、または等倍出力を選んでください（フレーム保持は約96MBまで）。';return;
+  }
+  setVideoBusy(true);
+  clearTimeout(retroDebounce);
+  progress.value=0;
+  const onHidden=()=>{if(document.hidden) controller.abort();};
+  document.addEventListener('visibilitychange',onHidden);
+  let audioContext=null,audioBuffer=null;
+  try{
+    video.pause();
+    document.getElementById('pixelVideoResult').pause();
+    if(withAudio){
+      const Context=window.AudioContext||window.webkitAudioContext;
+      if(!Context) throw new Error('このブラウザは音声付き変換に対応していません。「音声なし」を選ぶか別のブラウザで試してください。');
+      audioContext=new Context();
+      await videoAudioTask(audioContext.resume(),signal);
+      status.textContent=`音声を準備中：${VIDEO_AUDIO_MODES[audioMode].label}...`;
+      audioBuffer=await prepareVideoAudio(audioMode,audioContext,start,duration,signal);
+    }
+    status.textContent='動画全体から共通パレットを作成中...';
+    const sheet=document.createElement('canvas');sheet.width=96*8;sheet.height=96;
+    const sampleCtx=sheet.getContext('2d');
+    for(let i=0;i<8;i++){
+      await seekPixelVideo(video,start+duration*(i+0.5)/8,signal);
+      sampleCtx.drawImage(video,i*96,0,96,96);
+    }
+    const sampleData=sampleCtx.getImageData(0,0,sheet.width,sheet.height);
+    if(document.getElementById('grayToggle').checked){
+      for(let i=0;i<sampleData.data.length;i+=4){
+        const g=Math.round(sampleData.data[i]*.299+sampleData.data[i+1]*.587+sampleData.data[i+2]*.114);
+        sampleData.data[i]=sampleData.data[i+1]=sampleData.data[i+2]=g;
+      }
+    }
+    const palette=selectProcessingPalette(sampleData,retroDeterministic);
+    sheet.width=sheet.height=1;
+    const renderFrame=async time=>{
+      await seekPixelVideo(video,time,signal);
+      ctx.drawImage(video,0,0,raw.width,raw.height);
+      return processOneImage(raw,false,palette,true).dot;
+    };
+    const section=document.getElementById('videoResultSection');
+    const still=document.getElementById('videoFramePreview');
+    if(previewOnly){
+      const frame=await renderFrame(start);
+      still.width=dotSize?sw:raw.width;still.height=dotSize?sh:raw.height;
+      const sc=still.getContext('2d');sc.imageSmoothingEnabled=false;
+      sc.drawImage(frame,0,0,still.width,still.height);
+      frame.width=frame.height=1;
+      videoOutputKind='frame';
+      setVideoView('result');
+      document.getElementById('videoSaveLink').hidden=true;
+      still.hidden=false;section.hidden=false;
+      status.textContent=`先頭フレームを表示しました。出力 ${still.width} × ${still.height}px。`;
+      section.scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
+    for(let i=0;i<count;i++){
+      videoCheck(signal);
+      frames.push(await renderFrame(start+i/fps));
+      progress.value=(i+1)/count*0.7;
+      status.textContent=`フレーム変換中 ${i+1} / ${count}`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+    const out=document.createElement('canvas');
+    out.width=dotSize?sw:raw.width;out.height=dotSize?sh:raw.height;
+    status.textContent=`動画を書き出し中（約${duration.toFixed(1)}秒）。この画面を表示したままお待ちください。`;
+    const blob=await recordPixelFrames(out,frames,fps,duration,mime,signal,p=>{progress.value=0.7+p*0.3;},audioContext,audioBuffer);
+    videoCheck(signal);
+    const result=document.getElementById('pixelVideoResult');
+    result.pause();result.removeAttribute('src');result.load();
+    if(pixelVideoOutputURL) URL.revokeObjectURL(pixelVideoOutputURL);
+    pixelVideoOutputURL=URL.createObjectURL(blob);
+    result.src=pixelVideoOutputURL;section.hidden=false;
+    result.muted=!withAudio;
+    pixelVideoResultAudio=audioMode;
+    videoOutputKind='video';
+    setVideoView('result');
+    const link=document.getElementById('videoSaveLink');
+    const extension=blob.type.includes('mp4')?'mp4':'webm';
+    link.href=pixelVideoOutputURL;link.download=`${pixelVideoName}_pixel${dotSize?'_1x':''}.${extension}`;link.hidden=false;
+    status.textContent=`変換完了：${out.width} × ${out.height}px / ${fps}fps / ${VIDEO_AUDIO_MODES[audioMode].label}。上部の「動画を保存」から保存できます。`;
+    section.scrollIntoView({behavior:'smooth',block:'center'});
+  }catch(e){status.textContent=e.name==='AbortError'?'変換を中止しました。画面を表示した状態で再実行できます。':e.message;}
+  finally{
+    frames.forEach(frame=>{frame.width=frame.height=1;});
+    raw.width=raw.height=1;
+    audioBuffer=null;
+    if(audioContext&&audioContext.state!=='closed') await audioContext.close().catch(()=>{});
+    document.removeEventListener('visibilitychange',onHidden);
+    pixelVideoJob=null;setVideoBusy(false);
+  }
+}
+
+initCompactUI();
 bindReactiveControls();
 switchTheme('dark');
 updateRetroSamplingHint();
