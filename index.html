@@ -491,6 +491,14 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .video-compare-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 2; pointer-events: none; }
 .video-compare-divider::after { content: ''; position: absolute; top: calc(50% - 10px); left: -8px; width: 18px; height: 20px; border-radius: 6px; border: 2px solid var(--accent); background: var(--surface); }
 .video-compare-divider:focus-visible::after { outline: 2px solid var(--text); outline-offset: 3px; }
+.video-view.video-compare.compare-vertical { cursor: ns-resize; }
+.video-view.compare-vertical .video-compare-divider { left: 0; right: 0; bottom: auto; width: auto; height: 2px; }
+.video-view.compare-vertical .video-compare-divider::after { left: calc(50% - 10px); top: -8px; width: 20px; height: 18px; }
+.compare-direction { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text3); }
+.compare-direction .btn { padding: 4px 9px; font-size: 11px; }
+.compare-direction .btn[aria-pressed="true"], .dot-presets .btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--surface2); }
+.dot-presets { display: flex; gap: 4px; margin-bottom: 8px; }
+.dot-presets .btn { flex: 1; padding: 5px 2px; font-size: 11px; }
 .video-compare-controls { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 .video-compare-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .video-compare-transport input[type=range] { flex: 1; min-width: 100px; width: auto; }
@@ -505,6 +513,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   place-items: center;
   overflow: hidden;
   background: linear-gradient(135deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  cursor: ew-resize;
+  touch-action: none;
 }
 .compare-layer,
 .compare-base {
@@ -520,7 +530,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   pointer-events: none;
 }
 .compare-divider {
-  grid-area: 1 / 1;
+  position: absolute;
+  top: 0;
   width: 2px;
   background: rgba(255,255,255,.9);
   box-shadow: 0 0 0 1px rgba(0,0,0,.2);
@@ -529,7 +540,9 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   pointer-events: none;
 }
 .compare-handle {
-  grid-area: 1 / 1;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   width: 20px;
   height: 20px;
   border-radius: 50%;
@@ -539,6 +552,9 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0,0,0,.25);
 }
+.compare-stage.compare-vertical { cursor: ns-resize; }
+.compare-stage.compare-vertical .compare-divider { left: 0; width: 100%; height: 2px; }
+.compare-stage.compare-vertical .compare-handle { left: 50%; transform: translate(-50%,-50%); }
 .compare-slider-wrap {
   padding: 10px 12px 12px;
   border-top: 1px solid var(--border);
@@ -803,6 +819,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
               <button class="btn preset-btn" onclick="applyPreset('fc')"><strong>FC風</strong><span>FCパレット / 12色 / 非正方形向け</span></button>
               <button class="btn preset-btn" onclick="applyPreset('pce')"><strong>PCE風</strong><span>PCEパレット / 24色 / 彩度高め</span></button>
               <button class="btn preset-btn" onclick="applyPreset('pc98')"><strong>PC-98風</strong><span>PC-98パレット / 32色 / くっきり</span></button>
+              <button class="btn preset-btn" onclick="applyPreset('sfc')"><strong>SFC風</strong><span>RGB各5bit / 32色 / 柔らかな階調</span></button>
               <button class="btn preset-btn" onclick="applyPreset('rpg')"><strong>RPG素材</strong><span>NN拡大向け / 16色 / シャープ</span></button>
             </div>
           </div>
@@ -838,6 +855,12 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         </div>
 
         <div id="paneDotSize">
+          <div class="dot-presets" aria-label="ドットサイズのプリセット">
+            <button class="btn" data-dot-size="2" onclick="applyDotPreset('dotsize',2)">2px</button>
+            <button class="btn" data-dot-size="4" onclick="applyDotPreset('dotsize',4)">4px</button>
+            <button class="btn" data-dot-size="8" onclick="applyDotPreset('dotsize',8)">8px</button>
+            <button class="btn" data-dot-size="16" onclick="applyDotPreset('dotsize',16)">16px</button>
+          </div>
           <div class="label-row">
             1ドットの大きさ
             <span class="spin-wrap">
@@ -848,11 +871,17 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
               </span>
             </span>
           </div>
-          <input type="range" id="dotSlider" min="2" max="256" value="8" step="1" oninput="syncDotSize(this.value)">
+          <input type="range" id="dotSlider" min="2" max="256" value="4" step="1" oninput="syncDotSize(this.value)">
           <div class="hint" style="margin-top:6px">大きいほど荒くなる。8px→細かい / 64px→粗い</div>
         </div>
 
         <div id="paneDotCount" style="display:none">
+          <div class="dot-presets" aria-label="横ドット数のプリセット">
+            <button class="btn" data-dot-count="32" onclick="applyDotPreset('dotcount',32)">横32</button>
+            <button class="btn" data-dot-count="64" onclick="applyDotPreset('dotcount',64)">横64</button>
+            <button class="btn" data-dot-count="128" onclick="applyDotPreset('dotcount',128)">横128</button>
+            <button class="btn" data-dot-count="256" onclick="applyDotPreset('dotcount',256)">横256</button>
+          </div>
           <div class="label-row">
             横のドット数
             <span class="spin-wrap">
@@ -1029,6 +1058,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
           <div class="tab" id="retroTabFC" onclick="switchRetroMode('fc')">FC</div>
           <div class="tab" id="retroTabPCE" onclick="switchRetroMode('pce')">PCE</div>
           <div class="tab" id="retroTabPC98" onclick="switchRetroMode('pc98')">PC-98</div>
+          <div class="tab" id="retroTabSFC" onclick="switchRetroMode('sfc')">SFC</div>
         </div>
 
         <!-- Shared controls: brightness bias (FC/PCE active) -->
@@ -1111,6 +1141,22 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
             </span>
           </div>
           <div style="text-align:right;font-size:11px;color:var(--accent3);font-family:'Space Mono',monospace;margin-top:3px" id="retroCountPC98Disp">16 / 4096色</div>
+        </div>
+
+        <div id="retroInfoSFC" style="display:none">
+          <div class="hint" style="margin-bottom:6px">SFC風 — RGB各5bitの32768色に合わせて減色します。使用色数は最大256色。実機のタイル別パレット制約や画面モードの再現ではありません。</div>
+          <div class="retro-count-row">
+            <span>使用色数</span>
+            <input type="range" class="orange" id="retroCountSFC" min="2" max="256" value="32" step="1" style="flex:1" oninput="syncRetroCount('SFC',this.value)">
+            <span class="spin-wrap">
+              <input type="text" inputmode="numeric" class="pal-num-inline" id="retroCountSFCNum" value="32" onchange="syncRetroCount('SFC',this.value)">
+              <span class="spin-btns">
+                <button class="spin-btn" onclick="spinRetro('SFC','retroCountSFCNum',1)">▲</button>
+                <button class="spin-btn" onclick="spinRetro('SFC','retroCountSFCNum',-1)">▼</button>
+              </span>
+            </span>
+          </div>
+          <div class="hint" id="retroCountSFCDisp" style="text-align:right;margin-top:3px">32 / 32768色</div>
         </div>
 
       </div>
@@ -1253,6 +1299,11 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <button class="tab" id="btnVideoResult" onclick="setVideoView('result')" hidden disabled>変換後</button>
         <button class="tab" id="btnVideoCompare" onclick="setVideoView('compare')" hidden disabled>スライダー比較</button>
       </div>
+      <div class="compare-direction" id="compareDirection" hidden>
+        <span>比較方向</span>
+        <button class="btn" id="compareAxisX" aria-pressed="true" onclick="setCompareAxis('x')">左右</button>
+        <button class="btn" id="compareAxisY" aria-pressed="false" onclick="setCompareAxis('y')">上下</button>
+      </div>
 
       <!-- CRT Filter controls -->
       <details class="display-effects" id="displayEffects">
@@ -1344,11 +1395,11 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 let origImg=null, dotCanvas=null, viewMode='both', specMode='dotsize', picking=false, priorityColors=[];
 let currentMedia='image', mediaLoadGeneration=0, videoOutputKind=null;
 let pixelMode='A', ditherMode='none', bayerSize='4x4';
-let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98'
+let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98' | 'sfc'
 let customMode=false, customPaletteFull=[], customCountVal2=16;
 let currentPalette=[], processedSmallCanvas=null, exportPreviewCache=null, lastProcessSignature='';
 // レトロ色数は DOM ではなくこの変数を正とする
-const DEFAULT_RETRO_COUNTS=Object.freeze({fc:12,pce:16,pc98:16});
+const DEFAULT_RETRO_COUNTS=Object.freeze({fc:12,pce:16,pc98:16,sfc:32});
 const retroCountVal={...DEFAULT_RETRO_COUNTS};
 let retroDebounce=null;
 let retroBrightBias=0; // -1 (暗い) ~ 0 (標準) ~ 1 (明るい)
@@ -1357,6 +1408,7 @@ let currentTheme='dark';
 let crtAnimId=null;
 let suppressAutoApply=false;
 let compareSliderPos=50;
+let compareAxis='x';
 let historySnapshots=[];
 let saveDebounce=null;
 
@@ -1374,6 +1426,7 @@ const PRESETS={
   fc:{pixelMode:'B',ditherMode:'bayer',bayerSize:'4x4',edgeStr:55,retroMode:'fc',retroCount:12,retroBright:0,crtAspect:true},
   pce:{pixelMode:'B',ditherMode:'bayer',bayerSize:'4x4',edgeStr:45,retroMode:'pce',retroCount:24,retroBright:10,crtAspect:true},
   pc98:{pixelMode:'A',ditherMode:'none',bayerSize:'4x4',edgeStr:40,retroMode:'pc98',retroCount:32,retroBright:-5,crtAspect:false},
+  sfc:{pixelMode:'B',ditherMode:'bayer',bayerSize:'4x4',edgeStr:40,gray:false,retroMode:'sfc',retroCount:32,retroBright:0,crtAspect:false},
   rpg:{pixelMode:'A',ditherMode:'none',bayerSize:'4x4',edgeStr:40,palNum:16,gray:false,retroMode:'off',exportScale:3,exportAlg:'nn'}
 };
 
@@ -1521,6 +1574,7 @@ function getSettingsPayload(){
       pceRes:document.querySelector('input[name="pceRes"]:checked')?.value || '256'
     },
     compareSliderPos,
+    compareAxis,
     videoAudioMode:document.getElementById('videoAudioMode').value,
     videoFormat:document.getElementById('videoFormat').value,
     videoAudioMono:forceVideoAudioMono,
@@ -1560,6 +1614,7 @@ function applySettingsPayload(payload,{reprocess=false}={}){
       if(payload.retroCount.fc) syncRetroCount('FC',payload.retroCount.fc);
       if(payload.retroCount.pce) syncRetroCount('PCE',payload.retroCount.pce);
       if(payload.retroCount.pc98) syncRetroCount('PC98',payload.retroCount.pc98);
+      syncRetroCount('SFC',payload.retroCount.sfc||DEFAULT_RETRO_COUNTS.sfc);
     }
     syncRetroBright(payload.retroBright ?? 0);
     if(Array.isArray(payload.customPaletteFull) && payload.customPaletteFull.length){
@@ -1589,6 +1644,7 @@ function applySettingsPayload(payload,{reprocess=false}={}){
     const radio=document.querySelector(`input[name="pceRes"][value="${pceRes}"]`);
     if(radio) radio.checked=true;
     compareSliderPos=Math.max(0,Math.min(100,payload.compareSliderPos ?? 50));
+    setCompareAxis(payload.compareAxis==='y'?'y':'x');
     if(payload.viewMode) viewMode=payload.viewMode;
   } finally {
     suppressAutoApply=false;
@@ -1820,11 +1876,34 @@ function syncDotSize(v){
   v=Math.max(2,Math.min(256,parseInt(v)||2));
   document.getElementById('dotSlider').value=v;
   document.getElementById('dotNumInline').value=v;
+  syncDotPresetButtons();
 }
 function syncDotCount(v){
   v=Math.max(4,Math.min(512,parseInt(v)||4));
   document.getElementById('dotCountSlider').value=v;
   document.getElementById('dotCountNumInline').value=v;
+  syncDotPresetButtons();
+}
+function syncDotPresetButtons(){
+  document.querySelectorAll('[data-dot-size], [data-dot-count]').forEach(btn=>{
+    const size=btn.dataset.dotSize;
+    const value=document.getElementById(size?'dotNumInline':'dotCountNumInline').value;
+    btn.setAttribute('aria-pressed',String(Number(size||btn.dataset.dotCount)===Number(value)));
+  });
+}
+
+function applyDotPreset(mode,value){
+  if(!['dotsize','dotcount'].includes(mode)) return;
+  clearTimeout(retroDebounce);
+  suppressAutoApply=true;
+  try{
+    switchSpec(mode);
+    if(mode==='dotsize') syncDotSize(value);
+    else syncDotCount(value);
+  }finally{suppressAutoApply=false;}
+  resetProcessingCaches();
+  applyUIState({reprocess:!!origImg&&currentMedia==='image',rerender:currentMedia==='image',refreshExport:true,refreshCRT:true});
+  setStatus(currentMedia==='video'?'ドット設定を反映しました。「動画を変換」で適用できます。':'ドット設定を反映しました。色・ディザ・ランダム設定はそのままです。','warn');
 }
 function syncPal(v){
   v=Math.max(2,Math.min(256,parseInt(v)||2));
@@ -1832,9 +1911,9 @@ function syncPal(v){
   document.getElementById('palNumInline').value=v;
 }
 function syncRetroCount(mode,v){
-  const maxMap={FC:54,PCE:512,PC98:4096};
+  const maxMap={FC:54,PCE:512,PC98:4096,SFC:32768};
   const mx=maxMap[mode]||256;
-  v=Math.max(2,Math.min(mx,parseInt(v)||2));
+  v=Math.max(2,Math.min(mode==='SFC'?256:mx,parseInt(v)||2));
   // JS変数に保存 (process()はここを読む)
   retroCountVal[mode.toLowerCase()]=v;
   // UIを同期
@@ -1877,6 +1956,7 @@ function updateRetroSamplingHint(){
     if(retroBrightBias>0.1) tone='明るい色を優先してサンプリングします。';
     else if(retroBrightBias<-0.1) tone='暗い色を優先してサンプリングします。';
   }
+  if(retroMode==='sfc') tone='画像に合わせて減色し、RGB各5bitに揃えます。'+(retroBrightBias>0.1?'明るめに調整。':retroBrightBias<-0.1?'暗めに調整。':'');
   hintEl.textContent=retroDeterministic
     ? tone+' 再現性重視のため、同じ入力では同じ結果になります。'
     : tone+' ランダム性を残すため、毎回わずかに結果が変わることがあります。';
@@ -1960,6 +2040,33 @@ function setView(v){
     if(btn)btn.className='tab'+(viewMode===id?' active':'');
   });
   applyUIState({rerender:true,refreshCRT:true});
+  updateCompareDirectionUI();
+}
+
+function comparisonClip(pos){
+  return compareAxis==='y'?`inset(0 0 ${100-pos}% 0)`:`inset(0 ${100-pos}% 0 0)`;
+}
+
+function comparePointerPosition(event,bounds){
+  const vertical=compareAxis==='y';
+  const length=vertical?bounds.height:bounds.width;
+  return length>0?((vertical?event.clientY-bounds.top:event.clientX-bounds.left)/length)*100:50;
+}
+
+function updateCompareDirectionUI(){
+  document.getElementById('compareDirection').hidden=currentMedia==='video'?pixelVideoView!=='compare':viewMode!=='slider';
+  document.getElementById('compareAxisX').setAttribute('aria-pressed',String(compareAxis==='x'));
+  document.getElementById('compareAxisY').setAttribute('aria-pressed',String(compareAxis==='y'));
+}
+
+function setCompareAxis(axis){
+  compareAxis=axis==='y'?'y':'x';
+  updateCompareDirectionUI();
+  updateCompareSliderUI();
+  document.getElementById('videoResultSection').classList.toggle('compare-vertical',compareAxis==='y');
+  document.getElementById('videoCompareDivider').setAttribute('aria-orientation',compareAxis==='y'?'vertical':'horizontal');
+  setVideoCompareRatio(videoCompareRatio);
+  if(!suppressAutoApply) scheduleSettingsSave();
 }
 
 function setCompareSlider(v){
@@ -1974,9 +2081,12 @@ function updateCompareSliderUI(){
   const handle=document.getElementById('compareHandle');
   const label=document.getElementById('compareValueLabel');
   const slider=document.getElementById('compareRange');
-  if(overlay) overlay.style.clipPath=`inset(0 ${100-compareSliderPos}% 0 0)`;
-  if(divider) divider.style.marginLeft=`calc(${compareSliderPos}% - 1px)`;
-  if(handle) handle.style.marginLeft=`calc(${compareSliderPos}% - 10px)`;
+  const vertical=compareAxis==='y';
+  const stage=document.getElementById('imageCompareStage');
+  if(stage) stage.classList.toggle('compare-vertical',vertical);
+  if(overlay) overlay.style.clipPath=comparisonClip(compareSliderPos);
+  if(divider){divider.style.left=vertical?'0':`calc(${compareSliderPos}% - 1px)`;divider.style.top=vertical?`calc(${compareSliderPos}% - 1px)`:'0';}
+  if(handle){handle.style.left=vertical?'50%':`calc(${compareSliderPos}% - 10px)`;handle.style.top=vertical?compareSliderPos+'%':'50%';}
   if(label) label.textContent=compareSliderPos+'%';
   if(slider && slider.value!==String(compareSliderPos)) slider.value=String(compareSliderPos);
 }
@@ -2017,7 +2127,10 @@ function renderRow(){
     title.textContent='BEFORE / AFTER SLIDER';
     wrap.appendChild(title);
     const stage=document.createElement('div');
-    stage.className='compare-stage';
+    stage.className='compare-stage';stage.id='imageCompareStage';
+    const move=e=>setCompareSlider(comparePointerPosition(e,stage.getBoundingClientRect()));
+    stage.addEventListener('pointerdown',e=>{if(e.button===0){stage.setPointerCapture(e.pointerId);move(e);}});
+    stage.addEventListener('pointermove',e=>{if(stage.hasPointerCapture(e.pointerId)) move(e);});
     const base=document.createElement('canvas');
     base.className='compare-base';
     base.width=origImg.width;base.height=origImg.height;
@@ -2027,15 +2140,12 @@ function renderRow(){
     overlay.id='compareOverlay';
     overlay.width=dotCanvas.width;overlay.height=dotCanvas.height;
     overlay.getContext('2d').drawImage(dotCanvas,0,0);
-    overlay.style.clipPath=`inset(0 ${100-compareSliderPos}% 0 0)`;
     const divider=document.createElement('div');
     divider.className='compare-divider';
     divider.id='compareDivider';
-    divider.style.marginLeft=`calc(${compareSliderPos}% - 1px)`;
     const handle=document.createElement('div');
     handle.className='compare-handle';
     handle.id='compareHandle';
-    handle.style.marginLeft=`calc(${compareSliderPos}% - 10px)`;
     stage.appendChild(base);
     stage.appendChild(overlay);
     stage.appendChild(divider);
@@ -2052,6 +2162,7 @@ function renderRow(){
     controls.appendChild(slider);
     wrap.appendChild(controls);
     row.appendChild(wrap);
+    updateCompareSliderUI();
     return;
   }
 
@@ -2464,11 +2575,36 @@ const PC98_PALETTE=(()=>{
 })();
 
 
+const SFC_PALETTE=(()=>{
+  const palette=[];
+  for(let r=0;r<32;r++)for(let g=0;g<32;g++)for(let b=0;b<32;b++)
+    palette.push([r,g,b].map(v=>Math.round(v*255/31)));
+  return palette;
+})();
+
 function getRetroPalette(){
   if(retroMode==='fc') return FC_PALETTE;
   if(retroMode==='pce') return PCE_PALETTE;
   if(retroMode==='pc98') return PC98_PALETTE;
+  if(retroMode==='sfc') return SFC_PALETTE;
   return null;
+}
+
+function reduceSFCPalette(data,n,brightBias,deterministic){
+  let input=data;
+  if(brightBias){
+    const pixels=new Uint8ClampedArray(data.data);
+    for(let i=0;i<pixels.length;i+=4) for(let c=0;c<3;c++) pixels[i+c]+=brightBias*48;
+    input={data:pixels};
+  }
+  // Fit the image first, then snap to RGB555 rather than scanning 32768 colors per center.
+  const palette=quantizeWithPriority(input,Math.max(2,Math.min(256,n)),priorityColors,parseInt(document.getElementById('weightSlider').value)||4,deterministic);
+  const seen=new Set();
+  return palette.map(c=>c.map(v=>Math.round(Math.round(v*31/255)*255/31))).filter(c=>{
+    const key=(c[0]<<16)|(c[1]<<8)|c[2];
+    if(seen.has(key)) return false;
+    seen.add(key);return true;
+  });
 }
 
 function createRandomRetroCenters(fullPal,n,brightBias){
@@ -2522,6 +2658,7 @@ function createDeterministicRetroCenters(fullPal,sample,n,brightBias){
 
 // レトロパレットに制約した k-means。通常はランダム性を残し、必要時のみ再現性重視にする。
 function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10,deterministic=false){
+  if(fullPal===SFC_PALETTE) return reduceSFCPalette(data,n,brightBias,deterministic);
   if(!Array.isArray(fullPal)||!fullPal.length){
     return quantizeWithPriority(data,n,priorityColors,parseInt(document.getElementById('weightSlider').value)||4,deterministic);
   }
@@ -2563,13 +2700,13 @@ function reduceRetroKMeans(data,fullPal,n,brightBias=0,iters=10,deterministic=fa
 }
 
 function switchRetroMode(m){
-  if(!['off','fc','pce','pc98'].includes(m)) m='off';
+  if(!['off','fc','pce','pc98','sfc'].includes(m)) m='off';
   retroMode=m;
-  ['Off','FC','PCE','PC98'].forEach(n=>{
+  ['Off','FC','PCE','PC98','SFC'].forEach(n=>{
     const el=document.getElementById('retroTab'+n);
     if(el) el.className='tab'+(retroMode===n.toLowerCase()?' active':'');
   });
-  ['Off','FC','PCE','PC98'].forEach(n=>{
+  ['Off','FC','PCE','PC98','SFC'].forEach(n=>{
     const el=document.getElementById('retroInfo'+n);
     if(el) el.style.display=m===n.toLowerCase()?'':'none';
   });
@@ -3033,6 +3170,7 @@ function applyPreset(name){
       if(preset.retroMode==='fc' && preset.retroCount) syncRetroCount('FC',preset.retroCount);
       if(preset.retroMode==='pce' && preset.retroCount) syncRetroCount('PCE',preset.retroCount);
       if(preset.retroMode==='pc98' && preset.retroCount) syncRetroCount('PC98',preset.retroCount);
+      if(preset.retroMode==='sfc' && preset.retroCount) syncRetroCount('SFC',preset.retroCount);
       if(typeof preset.retroBright==='number') syncRetroBright(preset.retroBright);
     } else {
       switchRetroMode('off');
@@ -3257,6 +3395,7 @@ function setMediaMode(mode){
     document.getElementById('historySection').hidden=false;
   }
   updateMediaActions();
+  updateCompareDirectionUI();
 }
 
 function setVideoView(view){
@@ -3303,6 +3442,7 @@ function setVideoView(view){
     updateVideoCompareMix();
   }
   updateVideoAudioNote();
+  updateCompareDirectionUI();
 }
 
 function initCompactUI(){
@@ -3473,9 +3613,11 @@ function setVideoCompareRatio(value){
   const pos=Math.round(Math.max(0,Math.min(100,Number(value)||0)));
   videoCompareRatio=pos;
   document.getElementById('videoCompareRatio').textContent=`加工後 ${pos}%`;
-  document.getElementById('videoCompareDivider').style.left=pos+'%';
+  const divider=document.getElementById('videoCompareDivider');
+  divider.style.left=compareAxis==='y'?'0':pos+'%';
+  divider.style.top=compareAxis==='y'?pos+'%':'0';
   document.getElementById('videoCompareDivider').setAttribute('aria-valuenow',pos);
-  document.getElementById('videoCompareProcessed').style.clipPath=`inset(0 ${100-pos}% 0 0)`;
+  document.getElementById('videoCompareProcessed').style.clipPath=comparisonClip(pos);
   updateVideoCompareMix();
 }
 
@@ -3556,14 +3698,16 @@ function initVideoComparison(){
   const stage=document.getElementById('videoResultSection');
   const divider=document.getElementById('videoCompareDivider');
   divider.addEventListener('keydown',e=>{
-    const values={ArrowLeft:videoCompareRatio-1,ArrowRight:videoCompareRatio+1,Home:0,End:100};
+    const values={Home:0,End:100};
+    values[compareAxis==='y'?'ArrowUp':'ArrowLeft']=videoCompareRatio-1;
+    values[compareAxis==='y'?'ArrowDown':'ArrowRight']=videoCompareRatio+1;
     if(e.key in values){e.preventDefault();setVideoCompareRatio(values[e.key]);}
   });
   if(typeof ResizeObserver!=='undefined') new ResizeObserver(sizeVideoCompareStage).observe(stage.parentElement);
   window.addEventListener('resize',sizeVideoCompareStage);
   const move=e=>{
     const bounds=stage.getBoundingClientRect();
-    setVideoCompareRatio((e.clientX-bounds.left)/bounds.width*100);
+    setVideoCompareRatio(comparePointerPosition(e,bounds));
   };
   stage.addEventListener('pointerdown',e=>{
     if(pixelVideoView!=='compare'||pixelVideoJob||e.button!==0) return;
@@ -3617,7 +3761,7 @@ function updateVideoAudioNote(){
   const note=document.getElementById('videoAudioNote');
   note.hidden=currentMedia!=='video';
   if(pixelVideoView==='source') note.textContent='原動画：読み込んだファイルの音声を再生します。';
-  else if(pixelVideoView==='compare') note.textContent='比較スライダー：左端は原動画・原音、右端は変換後・加工音。'+(pixelVideoResultAudio==='none'?'変換後は無音なので、右へ動かすほど音が小さくなります。':'左右の音声を滑らかに切り替えます。');
+  else if(pixelVideoView==='compare') note.textContent='比較：加工後0%で原動画・原音、100%で変換後・加工音。'+(pixelVideoResultAudio==='none'?'変換後は無音なので、比率を上げるほど音が小さくなります。':'比率に合わせて音声を滑らかに切り替えます。');
   else if(videoOutputKind==='frame') note.textContent='先頭フレームの静止画プレビューです。音声は動画変換後に確認できます。';
   else if(videoOutputKind==='animation') note.textContent='変換後：無音のループアニメです。シーク・スライダー比較はWebM / MP4出力で利用できます。';
   else note.textContent=pixelVideoResultAudio==='none'
@@ -4176,6 +4320,7 @@ updateRetroSharedControlsVisibility();
 syncPresetCardCompact();
 renderHistorySnapshots();
 restoreSavedSettingsSilently();
+syncDotPresetButtons();
 updateVideoAudioHint(false);
 </script>
 </body>
