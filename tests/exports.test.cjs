@@ -21,7 +21,7 @@ function app(){
     });
     return elements.get(id);
   };
-  const context={document:{getElementById:get,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){},removeEventListener(){}},window:{addEventListener(){}},Blob,AbortController,DOMException,setTimeout,clearTimeout,cancelAnimationFrame(){},console};
+  const context={document:{getElementById:get,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){},removeEventListener(){}},window:{addEventListener(){},removeEventListener(){}},Blob,AbortController,DOMException,setTimeout,clearTimeout,cancelAnimationFrame(){},console};
   vm.createContext(context);
   vm.runInContext(script.slice(0,script.lastIndexOf('initCompactUI();')),context);
   return {context,get,run:code=>vm.runInContext(code,context)};
@@ -217,7 +217,7 @@ test('conversion routes GIF to animated preview, keeps video comparison for MP4 
   context.URL={createObjectURL:()=> 'blob:test',revokeObjectURL(){}};
   context.HTMLCanvasElement={prototype:{captureStream(){}}};
   context.MediaRecorder={isTypeSupported:()=>true};
-  Object.assign(get('pixelVideoSource'),{videoWidth:4,videoHeight:2,duration:1});
+  Object.assign(get('pixelVideoSource'),{videoWidth:4,videoHeight:2,duration:1,readyState:3});
   get('videoStart').value=0;get('videoEnd').value=1/3;get('videoFPS').value=6;get('videoDotSize').checked=true;
   run(`
     currentMedia='video';
@@ -481,4 +481,96 @@ test('a decoder frame completing after a rewind cannot overwrite the new compari
   assert.equal(commits,0);assert.equal(context.state.busy,false);
   context.seekPixelVideo=async()=>{};
   await context.renderVideoComparePair(0,context.state);assert.equal(commits,2);assert.equal(context.state.frameIndex,0);
+});
+
+function visibilityApp(){
+  const fixture=app(),events=new Player('document');
+  fixture.context.document.hidden=false;
+  fixture.context.document.addEventListener=events.addEventListener.bind(events);
+  fixture.context.document.removeEventListener=events.removeEventListener.bind(events);
+  return {...fixture,events,hide(hidden){fixture.context.document.hidden=hidden;events.dispatch('visibilitychange');}};
+}
+
+test('a hidden job waits, resumes on visibility and removes its listeners',async()=>{
+  const {context,hide,events}=visibilityApp(),controller=new AbortController();
+  hide(true);let done=false;
+  const task=context.waitForVideoVisibility(controller.signal).then(()=>{done=true;});
+  await Promise.resolve();assert.equal(done,false);
+  hide(false);await task;assert.equal(done,true);
+  assert.equal(events.handlers.get('visibilitychange').size,0);
+});
+
+test('hidden recording attempt is discarded, then retried without cancelling the full job',async()=>{
+  const {context,hide}=visibilityApp(),controller=new AbortController();let attempts=0;
+  const task=context.runVisibleVideoTask(signal=>{
+    attempts++;
+    if(attempts===2)return Promise.resolve('complete recording');
+    return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('hidden','AbortError')),{once:true}));
+  },controller.signal);
+  await new Promise(setImmediate);hide(true);await new Promise(setImmediate);
+  assert.equal(attempts,1);assert.equal(controller.signal.aborted,false);
+  hide(false);assert.equal(await task,'complete recording');assert.equal(attempts,2);
+});
+
+test('rapid hide/show retries the step even when already visible when its rejection arrives',async()=>{
+  const {context,hide}=visibilityApp();let attempts=0;
+  const task=context.runVisibleVideoTask(signal=>{
+    attempts++;
+    if(attempts>1)return Promise.resolve('ok');
+    return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('hidden','AbortError'))));
+  },new AbortController().signal);
+  await new Promise(setImmediate);hide(true);hide(false);
+  assert.equal(await task,'ok');assert.equal(attempts,2);
+});
+
+test('manual cancel during hidden waiting rejects and releases event listeners',async()=>{
+  const {context,hide,events}=visibilityApp(),controller=new AbortController();hide(true);
+  let attempts=0;
+  const task=context.runVisibleVideoTask(()=>{attempts++;},controller.signal);
+  controller.abort();await assert.rejects(task,{name:'AbortError'});
+  assert.equal(attempts,0);assert.equal(events.handlers.get('visibilitychange').size,0);
+});
+
+test('real export errors are not retried as background interruptions',async()=>{
+  const {context}=visibilityApp();let attempts=0;
+  await assert.rejects(context.runVisibleVideoTask(async()=>{attempts++;throw new Error('encoder failed');},new AbortController().signal),/encoder failed/);
+  assert.equal(attempts,1);
+});
+
+test('job progress and cancellation stay outside the collapsed video settings and remain interactive',()=>{
+  const {context,get}=app(),quick={id:'quick'},settings={id:'secVideo'},panel={id:'videoJobPanel'};
+  context.document.querySelectorAll=selector=>selector==='.sidebar > *'?[quick,settings,panel]:[];
+  context.document.querySelector=()=>get('main');
+  context.setVideoBusy(true);
+  assert.equal(quick.inert,true);assert.notEqual(panel.inert,true);
+  assert.equal(get('videoCancelBtn').hidden,false);assert.equal(get('videoProgress').hidden,false);
+  context.setVideoBusy(false);assert.equal(quick.inert,false);assert.equal(get('videoResumeBtn').hidden,true);
+  assert(html.indexOf('id="videoJobPanel"')<html.indexOf('id="secVideo"'));
+  assert.equal((html.match(/id="videoStatus"/g)||[]).length,1);
+});
+
+test('an interrupted recorder rejects its partial output and stops all capture tracks',async()=>{
+  const {context}=app(),controller=new AbortController();let stopped=0;
+  context.performance={now:()=>0};
+  context.MediaRecorder=class{
+    constructor(){this.state='inactive';}
+    start(){this.state='recording';}
+    stop(){this.state='inactive';this.onstop();}
+  };
+  const canvas={width:2,height:2,getContext:()=>({clearRect(){},drawImage(){}}),captureStream:()=>({getTracks:()=>[{stop(){stopped++;}}]})};
+  const task=context.recordPixelFrames(canvas,[{}],12,1,'video/webm',controller.signal,()=>{});
+  controller.abort();await assert.rejects(task,{name:'AbortError'});assert.equal(stopped,1);
+});
+
+test('the explicit audio resume button can unlock a suspended export context',async()=>{
+  const {context,run,get}=app();let unlock,calls=0;
+  context.audioContextMock={state:'suspended',resume(){
+    if(++calls===1)return new Promise(resolve=>{unlock=resolve;});
+    this.state='running';unlock();return Promise.resolve();
+  }};
+  run('pixelVideoAudioContext=audioContextMock');
+  const task=context.resumeVideoExportAudio(context.audioContextMock,new AbortController().signal);
+  assert.equal(get('videoResumeBtn').hidden,false);
+  context.resumeVideoJobAudio();await task;
+  assert.equal(get('videoResumeBtn').hidden,true);assert.equal(calls,2);
 });
