@@ -490,6 +490,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 #videoCompareProcessed { z-index: 1; }
 .video-compare-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 2; pointer-events: none; }
 .video-compare-divider::after { content: ''; position: absolute; top: calc(50% - 10px); left: -8px; width: 18px; height: 20px; border-radius: 6px; border: 2px solid var(--accent); background: var(--surface); }
+.video-compare-divider:focus-visible::after { outline: 2px solid var(--text); outline-offset: 3px; }
 .video-compare-controls { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 .video-compare-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .video-compare-transport input[type=range] { flex: 1; min-width: 100px; width: auto; }
@@ -1206,6 +1207,13 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <label class="label-row">FPS
           <select id="videoFPS" class="btn" style="padding:4px"><option>6</option><option selected>12</option><option>24</option><option>30</option></select>
         </label>
+        <label class="label-row" for="videoFormat">保存形式
+          <select id="videoFormat" class="btn" style="padding:4px" onchange="updateVideoAudioHint()">
+            <option value="auto">自動（WebM / MP4）</option>
+            <option value="webm">WebM</option><option value="mp4">MP4</option>
+            <option value="gif">GIFアニメ（無音）</option><option value="webp">WebPアニメ（無音）</option>
+          </select>
+        </label>
         <label class="label-row" for="videoAudioMode">音声
           <select id="videoAudioMode" class="btn" style="max-width:190px;padding:4px" onchange="updateVideoAudioHint()">
             <option value="none">音声なし</option>
@@ -1221,7 +1229,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <div class="toggle-row"><label class="toggle"><input type="checkbox" id="videoAudioMono" onchange="setVideoAudioMono(this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label><label for="videoAudioMono">モノラル化（左右をまとめる）</label></div>
         <div class="mini-meta" id="videoAudioHint">変換後は無音です。音量バーが表示されても音声は含まれません。</div>
         <div class="toggle-row"><label class="toggle"><input type="checkbox" id="videoDotSize" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>等倍出力（1ドット = 1px）</div>
-        <details class="help-details"><summary>動画出力について</summary><div class="hint">再現性重視がOFFなら、変換ごとに色選びが変わります。原寸は長辺1920pxまで。WebMまたはMP4で保存します。音声の周波数指定は加工時の値で、保存時の周波数はコーデックに従います。元音声も保存時に再圧縮します。音声付き変換の入力は3分・128MBまで。書き出し中はこの画面を表示したままにしてください。</div></details>
+        <details class="help-details"><summary>動画出力について</summary><div class="hint">再現性重視がOFFなら、変換ごとに色選びが変わります。原寸は長辺1920pxまで。保存形式は変換前に選んでください。WebM / MP4はブラウザの対応形式のみ利用できます。GIF / WebPは無音のループアニメです（シーク・スライダー比較なし）。GIFは最大256色、WebPは非可逆圧縮です。アニメ出力は全フレーム合計6400万画素・128MBまで。音声の周波数指定は加工時の値で、保存時の周波数はコーデックに従います。元音声も保存時に再圧縮します。音声付き変換の入力は3分・128MBまで。書き出し中はこの画面を表示したままにしてください。</div></details>
         <button class="btn" id="videoPreviewBtn" onclick="runPixelVideo(true)" disabled>先頭フレームを確認</button>
         <button class="btn danger" id="videoCancelBtn" onclick="cancelPixelVideo()" hidden>キャンセル</button>
         <progress id="videoProgress" value="0" max="1" style="width:100%" hidden></progress>
@@ -1286,14 +1294,14 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <video id="pixelVideoSource" controls muted playsinline preload="auto" hidden></video>
         <canvas id="videoFramePreview" style="width:100%;max-height:420px;object-fit:contain" hidden></canvas>
         <video id="pixelVideoResult" controls playsinline style="width:100%;max-height:420px;image-rendering:pixelated" hidden></video>
+        <img id="pixelAnimationResult" alt="変換後のループアニメ" style="display:block;width:100%;max-height:420px;object-fit:contain;image-rendering:pixelated" hidden>
         <video id="videoCompareDecoder" muted playsinline preload="auto" hidden></video>
         <canvas class="video-compare-image" id="videoCompareOriginal" hidden style="image-rendering:auto"></canvas>
         <canvas class="video-compare-image" id="videoCompareProcessed" hidden></canvas>
-        <div class="video-compare-divider" id="videoCompareDivider" hidden></div>
+        <div class="video-compare-divider" id="videoCompareDivider" role="slider" tabindex="0" aria-label="原動画と変換後の比較比率・音声クロスフェード" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" hidden></div>
       </div>
       <div class="video-compare-controls" id="videoCompareControls" hidden>
         <div class="label-row"><span>原動画・原音 ↔ 変換後・加工音</span><span class="val" id="videoCompareRatio">加工後 50%</span></div>
-        <input type="range" id="videoCompareRange" min="0" max="100" value="50" step="1" aria-label="原動画と変換後の比較比率・音声クロスフェーダー" oninput="setVideoCompareRatio(this.value)">
         <div class="video-compare-transport">
           <button class="btn" id="videoComparePlay" onclick="toggleVideoComparePlayback()">再生</button>
           <input type="range" id="videoCompareTime" min="0" max="1" value="0" step="0.01" aria-label="比較動画の再生位置" oninput="seekVideoComparison(this.value)" onchange="finishVideoCompareSeek()">
@@ -1514,6 +1522,7 @@ function getSettingsPayload(){
     },
     compareSliderPos,
     videoAudioMode:document.getElementById('videoAudioMode').value,
+    videoFormat:document.getElementById('videoFormat').value,
     videoAudioMono:forceVideoAudioMono,
     customPaletteFull:customPaletteFull.map(c=>[...c])
   };
@@ -1526,6 +1535,7 @@ function applySettingsPayload(payload,{reprocess=false}={}){
   try{
     switchTheme(payload.theme||'dark');
     document.getElementById('videoAudioMode').value=VIDEO_AUDIO_MODES[payload.videoAudioMode]?payload.videoAudioMode:'none';
+    document.getElementById('videoFormat').value=['auto','webm','mp4','gif','webp'].includes(payload.videoFormat)?payload.videoFormat:'auto';
     forceVideoAudioMono=!!payload.videoAudioMono;
     updateVideoAudioHint();
     switchSpec(payload.specMode||'dotsize');
@@ -3232,7 +3242,7 @@ function setMediaMode(mode){
   document.getElementById('videoAudioNote').hidden=!isVideo;
   ['Both','Slider','Orig','Dot','Export'].forEach(n=>document.getElementById('btn'+n).hidden=isVideo);
   ['Source','Result','Compare'].forEach(n=>document.getElementById('btnVideo'+n).hidden=!isVideo);
-  document.getElementById('videoSaveLink').hidden=!isVideo||videoOutputKind!=='video';
+  document.getElementById('videoSaveLink').hidden=!isVideo||!['video','animation'].includes(videoOutputKind);
   if(isVideo){
     document.getElementById('paletteSection').style.display='none';
     document.getElementById('historySection').hidden=true;
@@ -3262,6 +3272,7 @@ function setVideoView(view){
   source.pause();output.pause();
   source.hidden=result&&!comparing;
   output.hidden=!result||videoOutputKind!=='video';
+  document.getElementById('pixelAnimationResult').hidden=!result||videoOutputKind!=='animation';
   document.getElementById('videoFramePreview').hidden=!result||videoOutputKind!=='frame';
   document.getElementById('btnVideoSource').className='tab'+(!result?' active':'');
   document.getElementById('btnVideoResult').className='tab'+(result&&!comparing?' active':'');
@@ -3280,8 +3291,8 @@ function setVideoView(view){
     source.muted=false;output.muted=pixelVideoResultAudio==='none';source.volume=output.volume=1;
     if(output.currentTime>.001) output.currentTime=0;
     if(Math.abs(source.currentTime-pixelVideoResultRange.start)>.001) source.currentTime=pixelVideoResultRange.start;
-    document.getElementById('videoCompareStatus').textContent='同じ区間を同期再生します。比較スライダーは音声のクロスフェーダーも兼ねます（保存動画には影響しません）。';
-    setVideoCompareRatio(document.getElementById('videoCompareRange').value);
+    document.getElementById('videoCompareStatus').textContent='画面上の境界線をドラッグして比較します。音声もクロスフェードします（保存動画には影響しません）。';
+    setVideoCompareRatio(videoCompareRatio);
     updateVideoCompareClock();
     startVideoCompareVisuals();
   } else {
@@ -3321,6 +3332,7 @@ let pixelVideoName='video', pixelVideoLoadId=0;
 let pixelVideoResultRange=null, videoCompareFrame=null, videoCompareAudio=null;
 let videoCompareVolumeState=null, videoCompareResumeSeek=false, videoComparePlayId=0;
 let videoCompareVisual=null;
+let videoCompareRatio=50;
 let pixelVideoCompareFrames=[];
 
 function clearVideoCompareFrames(){
@@ -3413,7 +3425,7 @@ function restoreVideoCompareVolume(){
 }
 
 function updateVideoCompareMix(){
-  const ratio=Number(document.getElementById('videoCompareRange').value)/100;
+  const ratio=videoCompareRatio/100;
   const comparing=pixelVideoView==='compare'&&currentMedia==='video';
   const volume=Math.max(0,Math.min(1,Number(document.getElementById('videoCompareVolume').value)/100));
   document.getElementById('videoCompareVolumeValue').textContent=Math.round(volume*100)+'%';
@@ -3458,10 +3470,11 @@ async function ensureVideoCompareAudio(){
 }
 
 function setVideoCompareRatio(value){
-  const pos=Math.max(0,Math.min(100,Number(value)||0));
-  document.getElementById('videoCompareRange').value=pos;
+  const pos=Math.round(Math.max(0,Math.min(100,Number(value)||0)));
+  videoCompareRatio=pos;
   document.getElementById('videoCompareRatio').textContent=`加工後 ${pos}%`;
   document.getElementById('videoCompareDivider').style.left=pos+'%';
+  document.getElementById('videoCompareDivider').setAttribute('aria-valuenow',pos);
   document.getElementById('videoCompareProcessed').style.clipPath=`inset(0 ${100-pos}% 0 0)`;
   updateVideoCompareMix();
 }
@@ -3541,6 +3554,11 @@ async function toggleVideoComparePlayback(){
 
 function initVideoComparison(){
   const stage=document.getElementById('videoResultSection');
+  const divider=document.getElementById('videoCompareDivider');
+  divider.addEventListener('keydown',e=>{
+    const values={ArrowLeft:videoCompareRatio-1,ArrowRight:videoCompareRatio+1,Home:0,End:100};
+    if(e.key in values){e.preventDefault();setVideoCompareRatio(values[e.key]);}
+  });
   if(typeof ResizeObserver!=='undefined') new ResizeObserver(sizeVideoCompareStage).observe(stage.parentElement);
   window.addEventListener('resize',sizeVideoCompareStage);
   const move=e=>{
@@ -3585,11 +3603,13 @@ function setVideoAudioMono(checked){
 
 function updateVideoAudioHint(save=true){
   const mode=document.getElementById('videoAudioMode').value;
+  const animation=['gif','webp'].includes(document.getElementById('videoFormat').value);
   const config=VIDEO_AUDIO_MODES[mode]||VIDEO_AUDIO_MODES.none;
   const toggle=document.getElementById('videoAudioMono');
+  document.getElementById('videoAudioMode').disabled=animation||!!pixelVideoJob;
   toggle.checked=!!config.mono||forceVideoAudioMono;
-  toggle.disabled=mode==='none'||!!config.mono;
-  document.getElementById('videoAudioHint').textContent=config.hint+(mode!=='none'&&!config.mono?(forceVideoAudioMono?' モノラルで出力。':' 元のチャンネル構成を保持。'):'');
+  toggle.disabled=animation||!!pixelVideoJob||mode==='none'||!!config.mono;
+  document.getElementById('videoAudioHint').textContent=animation?'GIF / WebPは音声なしのループアニメです。音声を残す場合はWebM / MP4を選んでください。音声設定は保持されます。':config.hint+(mode!=='none'&&!config.mono?(forceVideoAudioMono?' モノラルで出力。':' 元のチャンネル構成を保持。'):'');
   if(save&&!suppressAutoApply) scheduleSettingsSave();
 }
 
@@ -3599,6 +3619,7 @@ function updateVideoAudioNote(){
   if(pixelVideoView==='source') note.textContent='原動画：読み込んだファイルの音声を再生します。';
   else if(pixelVideoView==='compare') note.textContent='比較スライダー：左端は原動画・原音、右端は変換後・加工音。'+(pixelVideoResultAudio==='none'?'変換後は無音なので、右へ動かすほど音が小さくなります。':'左右の音声を滑らかに切り替えます。');
   else if(videoOutputKind==='frame') note.textContent='先頭フレームの静止画プレビューです。音声は動画変換後に確認できます。';
+  else if(videoOutputKind==='animation') note.textContent='変換後：無音のループアニメです。シーク・スライダー比較はWebM / MP4出力で利用できます。';
   else note.textContent=pixelVideoResultAudio==='none'
     ? '変換後：音声なし。音量バーが表示されても無音です。'
     : `変換後の音声：${VIDEO_AUDIO_MODES[pixelVideoResultAudio].label} / ${pixelVideoResultChannels===1?'モノラル':'ステレオ'}（選択区間に合わせて出力）。`;
@@ -3718,6 +3739,9 @@ async function loadPixelVideo(input,generation=mediaLoadGeneration){
     pixelVideoResultRange=null;
     document.getElementById('videoSaveLink').hidden=true;
     document.getElementById('pixelVideoResult').pause();
+    document.getElementById('pixelVideoResult').removeAttribute('src');
+    document.getElementById('pixelVideoResult').load();
+    document.getElementById('pixelAnimationResult').removeAttribute('src');
     if(pixelVideoOutputURL){URL.revokeObjectURL(pixelVideoOutputURL);pixelVideoOutputURL=null;}
     setMediaMode('video');
     document.getElementById('videoSourceInfo').textContent=`${video.videoWidth} × ${video.videoHeight} / ${video.duration.toFixed(2)}秒`;
@@ -3823,6 +3847,175 @@ function recordPixelFrames(canvas,frames,fps,duration,mime,signal,onProgress,aud
   });
 }
 
+// GIF uses the shared video palette; only palettes above 256 colors are reduced.
+function makeGIFPalette(palette){
+  let colors=palette.length?palette:[[0,0,0]];
+  if(colors.length>256){
+    const data=new Uint8ClampedArray(colors.flatMap(c=>[...c,255]));
+    colors=quantizeWithPriority({data},256,[],1,true);
+  }
+  return colors;
+}
+
+function gifFrameIndices(frame,width,height,palette,cache){
+  const data=frame.getContext('2d').getImageData(0,0,frame.width,frame.height).data;
+  const small=new Uint8Array(frame.width*frame.height);
+  for(let i=0;i<small.length;i++){
+    const r=data[i*4],g=data[i*4+1],b=data[i*4+2],key=(r<<16)|(g<<8)|b;
+    if(!cache.has(key)){
+      let index=0,distance=Infinity;
+      for(let j=0;j<palette.length;j++){
+        const c=palette[j],d=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;
+        if(d<distance){distance=d;index=j;}
+      }
+      cache.set(key,index);
+    }
+    small[i]=cache.get(key);
+  }
+  if(width===frame.width&&height===frame.height) return small;
+  const indices=new Uint8Array(width*height);
+  for(let y=0;y<height;y++){
+    const row=Math.floor(y*frame.height/height)*frame.width;
+    for(let x=0;x<width;x++) indices[y*width+x]=small[row+Math.floor(x*frame.width/width)];
+  }
+  return indices;
+}
+
+function encodeGIFLZW(indices,minBits){
+  const clear=1<<minBits,end=clear+1;
+  const bytes=new Uint8Array(Math.ceil(indices.length*1.6)+1024);
+  let offset=0,buffer=0,used=0,bits=minBits+1,next=end+1;
+  const dict=new Map();
+  const emit=code=>{
+    buffer|=code<<used;used+=bits;
+    while(used>=8){bytes[offset++]=buffer&255;buffer>>>=8;used-=8;}
+  };
+  emit(clear);
+  let prefix=indices[0];
+  for(let i=1;i<indices.length;i++){
+    const value=indices[i],key=prefix*256+value;
+    if(dict.has(key)){prefix=dict.get(key);continue;}
+    emit(prefix);
+    // The decoder adds dictionary entries one emitted code behind the encoder.
+    if(next===(1<<bits)&&bits<12) bits++;
+    if(next<4096) dict.set(key,next++);
+    else {emit(clear);dict.clear();bits=minBits+1;next=end+1;}
+    prefix=value;
+  }
+  emit(prefix);
+  if(next===(1<<bits)&&bits<12) bits++;
+  emit(end);
+  if(used) bytes[offset++]=buffer&255;
+  return bytes.subarray(0,offset);
+}
+
+function gifDataBlocks(bytes,minBits){
+  const result=new Uint8Array(2+bytes.length+Math.ceil(bytes.length/255));
+  let offset=0;result[offset++]=minBits;
+  for(let i=0;i<bytes.length;i+=255){
+    const block=bytes.subarray(i,i+255);
+    result[offset++]=block.length;result.set(block,offset);offset+=block.length;
+  }
+  result[offset]=0;
+  return result;
+}
+
+function putLE(bytes,offset,value,length){
+  for(let i=0;i<length;i++){bytes[offset+i]=value&255;value=Math.floor(value/256);}
+}
+
+function riffChunk(name,parts){
+  const body=new Blob(parts),header=new Uint8Array(8);
+  for(let i=0;i<4;i++) header[i]=name.charCodeAt(i);
+  putLE(header,4,body.size,4);
+  return new Blob([header,body,...(body.size%2?[new Uint8Array(1)]:[])]);
+}
+
+function webPFramePayload(bytes){
+  const tag=offset=>String.fromCharCode(...bytes.subarray(offset,offset+4));
+  if(tag(0)!=='RIFF'||tag(8)!=='WEBP') throw new Error('このブラウザはWebP保存に対応していません。GIFまたは動画形式を選んでください。');
+  const parts=[];
+  let hasImage=false,alpha=false;
+  for(let offset=12;offset+8<=bytes.length;){
+    const name=tag(offset),length=new DataView(bytes.buffer,bytes.byteOffset+offset+4,4).getUint32(0,true);
+    const end=offset+8+length+(length%2);
+    if(end>bytes.length) throw new Error('WebPフレームが壊れています。別の保存形式を試してください。');
+    if(['ALPH','VP8 ','VP8L'].includes(name)) parts.push(bytes.subarray(offset,end));
+    if(name==='ALPH'||(name==='VP8L'&&length>=5&&(bytes[offset+12]&16))) alpha=true;
+    if(name==='VP8 '||name==='VP8L') hasImage=true;
+    offset=end;
+  }
+  if(!hasImage) throw new Error('WebPの画像データを生成できませんでした。GIFまたは動画形式を選んでください。');
+  return {parts,alpha};
+}
+
+function animatedWebPHeader(width,height,alpha){
+  const extended=new Uint8Array(10);extended[0]=2|(alpha?16:0);
+  putLE(extended,4,width-1,3);putLE(extended,7,height-1,3);
+  const animation=new Uint8Array(6);animation[3]=255;
+  return [riffChunk('VP8X',[extended]),riffChunk('ANIM',[animation])];
+}
+
+function animationFrameDelay(index,fps,duration,units){
+  return Math.max(units===100?2:11,Math.round(Math.min(duration,(index+1)/fps)*units)-Math.round(index/fps*units));
+}
+
+async function encodePixelAnimation(canvas,frames,fps,duration,format,palette,signal,onProgress){
+  const width=canvas.width,height=canvas.height,parts=[];
+  const colors=format==='gif'?makeGIFPalette(palette):null;
+  const cache=new Map();
+  const minBits=colors?Math.max(2,Math.ceil(Math.log2(colors.length))):0;
+  if(format==='gif'){
+    const tableBits=Math.max(1,Math.ceil(Math.log2(colors.length)));
+    const header=new Uint8Array(13+3*(1<<tableBits));
+    header.set([71,73,70,56,57,97]);putLE(header,6,width,2);putLE(header,8,height,2);
+    header[10]=0xf0|(tableBits-1);
+    colors.forEach((c,i)=>header.set(c,13+i*3));
+    parts.push(header,new Uint8Array([33,255,11,78,69,84,83,67,65,80,69,50,46,48,3,1,0,0,0]));
+  }
+  let size=0,alpha=false;
+  const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+  for(let i=0;i<frames.length;i++){
+    videoCheck(signal);
+    if(format==='gif'){
+      const control=new Uint8Array([33,249,4,4,0,0,0,0]);
+      putLE(control,4,animationFrameDelay(i,fps,duration,100),2);
+      const descriptor=new Uint8Array(10);descriptor[0]=44;
+      putLE(descriptor,5,width,2);putLE(descriptor,7,height,2);
+      const indices=gifFrameIndices(frames[i],width,height,colors,cache);
+      const data=gifDataBlocks(encodeGIFLZW(indices,minBits),minBits);
+      parts.push(control,descriptor,data);size+=control.length+descriptor.length+data.length;
+    } else {
+      ctx.fillStyle='#000';ctx.fillRect(0,0,width,height);
+      ctx.drawImage(frames[i],0,0,width,height);
+      const blob=await videoAudioTask(new Promise(resolve=>canvas.toBlob(resolve,'image/webp',1)),signal);
+      if(!blob||blob.type!=='image/webp') throw new Error('このブラウザはWebP保存に対応していません。GIFまたは動画形式を選んでください。');
+      const frame=webPFramePayload(new Uint8Array(await blob.arrayBuffer()));
+      alpha=alpha||frame.alpha;
+      const header=new Uint8Array(16);header[15]=2;
+      putLE(header,6,width-1,3);putLE(header,9,height-1,3);
+      putLE(header,12,animationFrameDelay(i,fps,duration,1000),3);
+      const chunk=riffChunk('ANMF',[header,...frame.parts]);
+      parts.push(chunk);size+=chunk.size;
+    }
+    if(size>128*1024*1024) throw new Error('アニメの容量が128MBを超えました。区間・FPSを減らすか、等倍出力にしてください。');
+    onProgress((i+1)/frames.length);
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  videoCheck(signal);
+  if(format==='gif') return new Blob([...parts,new Uint8Array([59])],{type:'image/gif'});
+  const body=new Blob(['WEBP',...animatedWebPHeader(width,height,alpha),...parts]);
+  const header=new Uint8Array([82,73,70,70,0,0,0,0]);putLE(header,4,body.size,4);
+  return new Blob([header,body],{type:'image/webp'});
+}
+
+function selectVideoMime(format,withAudio){
+  if(typeof MediaRecorder==='undefined') return '';
+  const webm=withAudio?['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  const types=format==='mp4'?['video/mp4']:format==='webm'?webm:[...webm,'video/mp4'];
+  return types.find(t=>MediaRecorder.isTypeSupported(t))||'';
+}
+
 async function runPixelVideo(previewOnly){
   if(pixelVideoJob) return;
   const video=document.getElementById('pixelVideoSource');
@@ -3832,21 +4025,24 @@ async function runPixelVideo(previewOnly){
   const end=Number(document.getElementById('videoEnd').value);
   const fps=Number(document.getElementById('videoFPS').value);
   const dotSize=document.getElementById('videoDotSize').checked;
-  const audioMode=document.getElementById('videoAudioMode').value;
+  const format=document.getElementById('videoFormat').value;
+  const animation=format==='gif'||format==='webp';
+  const audioMode=animation?'none':document.getElementById('videoAudioMode').value;
   const withAudio=!previewOnly&&audioMode!=='none';
   const duration=end-start;
   if(!video.videoWidth||!Number.isFinite(start)||!Number.isFinite(end)||start<0||end>video.duration||duration<=0||duration>30){
     status.textContent='開始・終了を動画の範囲内に設定してください。変換区間は0秒超〜30秒です。';return;
   }
-  const mimeTypes=withAudio?['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4']:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
-  const mime=typeof MediaRecorder==='undefined'?'':mimeTypes.find(t=>MediaRecorder.isTypeSupported(t));
-  if(!previewOnly && (!mime || !HTMLCanvasElement.prototype.captureStream)){
-    status.textContent='このブラウザは動画保存に対応していません。Chromeなどで開き直してください。先頭フレームの確認は利用できます。';return;
+  if(![6,12,24,30].includes(fps)) {status.textContent='FPSは6 / 12 / 24 / 30から選んでください。';return;}
+  const mime=animation?'':selectVideoMime(format,withAudio);
+  if(!previewOnly&&!animation&&(!mime||!HTMLCanvasElement.prototype.captureStream)){
+    status.textContent=`このブラウザでは${format==='auto'?'動画':format.toUpperCase()}を書き出せません。保存形式を自動・GIFに変えるか、別のブラウザで試してください。先頭フレームの確認は利用できます。`;return;
   }
   const controller=new AbortController();
   pixelVideoJob=controller;
   const signal=controller.signal;
   const frames=[];
+  let out=null;
   const raw=document.createElement('canvas');
   raw.width=video.videoWidth;raw.height=video.videoHeight;
   const ctx=raw.getContext('2d');
@@ -3856,7 +4052,12 @@ async function runPixelVideo(previewOnly){
   const count=Math.ceil(duration*fps);
   if(!previewOnly && (count*sw*sh>24000000 || (!dotSize && Math.max(raw.width,raw.height)>1920))){
     pixelVideoJob=null;
+    raw.width=raw.height=1;
     status.textContent='処理量が大きすぎます。区間やFPSを減らす、ドットを粗くする、または等倍出力を選んでください（フレーム保持は約96MBまで）。';return;
+  }
+  if(!previewOnly&&animation&&count*(dotSize?sw*sh:raw.width*raw.height)>64000000){
+    pixelVideoJob=null;raw.width=raw.height=1;
+    status.textContent='アニメ出力は全フレーム合計6400万画素までです。等倍出力を選ぶか、区間・FPSを減らしてください。';return;
   }
   setVideoBusy(true);
   clearTimeout(retroDebounce);
@@ -3925,32 +4126,40 @@ async function runPixelVideo(previewOnly){
       status.textContent=`フレーム変換中 ${i+1} / ${count}`;
       await new Promise(r=>setTimeout(r,0));
     }
-    const out=document.createElement('canvas');
+    out=document.createElement('canvas');
     out.width=dotSize?sw:raw.width;out.height=dotSize?sh:raw.height;
-    status.textContent=`動画を書き出し中（約${duration.toFixed(1)}秒）。この画面を表示したままお待ちください。`;
-    const blob=await recordPixelFrames(out,frames,fps,duration,mime,signal,p=>{progress.value=0.7+p*0.3;},audioContext,audioBuffer);
+    status.textContent=animation?`${format.toUpperCase()}アニメを書き出し中...`:`動画を書き出し中（約${duration.toFixed(1)}秒）。この画面を表示したままお待ちください。`;
+    const report=p=>{progress.value=0.7+p*0.3;};
+    const blob=animation
+      ?await encodePixelAnimation(out,frames,fps,duration,format,palette,signal,report)
+      :await recordPixelFrames(out,frames,fps,duration,mime,signal,report,audioContext,audioBuffer);
     videoCheck(signal);
     const result=document.getElementById('pixelVideoResult');
     result.pause();result.removeAttribute('src');result.load();
+    const image=document.getElementById('pixelAnimationResult');image.removeAttribute('src');
     if(pixelVideoOutputURL) URL.revokeObjectURL(pixelVideoOutputURL);
     pixelVideoOutputURL=URL.createObjectURL(blob);
-    result.src=pixelVideoOutputURL;section.hidden=false;
+    if(animation) image.src=pixelVideoOutputURL;
+    else result.src=pixelVideoOutputURL;
+    section.hidden=false;
     result.muted=!withAudio;
     pixelVideoResultAudio=audioMode;
     pixelVideoResultChannels=audioBuffer?.numberOfChannels||0;
-    pixelVideoResultRange={start,duration,fps};
-    pixelVideoCompareFrames=frames;
-    videoOutputKind='video';
+    pixelVideoResultRange=animation?null:{start,duration,fps};
+    if(!animation) pixelVideoCompareFrames=frames;
+    videoOutputKind=animation?'animation':'video';
     setVideoView('result');
     const link=document.getElementById('videoSaveLink');
-    const extension=blob.type.includes('mp4')?'mp4':'webm';
+    const extension=animation?format:blob.type.includes('mp4')?'mp4':'webm';
     link.href=pixelVideoOutputURL;link.download=`${pixelVideoName}_pixel${dotSize?'_1x':''}.${extension}`;link.hidden=false;
-    status.textContent=`変換完了：${out.width} × ${out.height}px / ${fps}fps / ${VIDEO_AUDIO_MODES[audioMode].label}。上部の「動画を保存」から保存できます。`;
+    link.textContent=`${extension.toUpperCase()}を保存`;
+    status.textContent=`変換完了：${out.width} × ${out.height}px / ${fps}fps / ${extension.toUpperCase()} / ${VIDEO_AUDIO_MODES[audioMode].label}。上部の保存ボタンから保存できます。`;
     section.scrollIntoView({behavior:'smooth',block:'center'});
   }catch(e){status.textContent=e.name==='AbortError'?'変換を中止しました。画面を表示した状態で再実行できます。':e.message;}
   finally{
     if(frames!==pixelVideoCompareFrames) frames.forEach(frame=>{frame.width=frame.height=1;});
     raw.width=raw.height=1;
+    if(out) out.width=out.height=1;
     audioBuffer=null;
     if(audioContext&&audioContext.state!=='closed') await audioContext.close().catch(()=>{});
     document.removeEventListener('visibilitychange',onHidden);
