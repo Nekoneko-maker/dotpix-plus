@@ -21,7 +21,7 @@ function app(){
     });
     return elements.get(id);
   };
-  const context={document:{getElementById:get,addEventListener(){},removeEventListener(){}},window:{addEventListener(){}},Blob,AbortController,DOMException,setTimeout,clearTimeout,cancelAnimationFrame(){},console};
+  const context={document:{getElementById:get,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){},removeEventListener(){}},window:{addEventListener(){}},Blob,AbortController,DOMException,setTimeout,clearTimeout,cancelAnimationFrame(){},console};
   vm.createContext(context);
   vm.runInContext(script.slice(0,script.lastIndexOf('initCompactUI();')),context);
   return {context,get,run:code=>vm.runInContext(code,context)};
@@ -196,7 +196,8 @@ test('master volume still controls both sides of the on-image crossfade',async()
   await run("currentMedia='video';pixelVideoView='compare';pixelVideoResultAudio='sr22';ensureVideoCompareAudio()");
   const graph=run('videoCompareAudio');
   assert.deepEqual(graph.original.outputs,[graph.master]);assert.deepEqual(graph.processed.outputs,[graph.master]);
-  for(const ratio of [0,50,100]) for(const level of [0,25,100]){
+  for(const axis of ['x','y']) for(const ratio of [0,50,100]) for(const level of [0,25,100]){
+    run(`suppressAutoApply=true;setCompareAxis('${axis}')`);
     get('videoCompareVolume').value=level;
     run(`setVideoCompareRatio(${ratio})`);
     assert.equal(graph.original.gain.value,1-ratio/100);assert.equal(graph.processed.gain.value,ratio/100);
@@ -242,4 +243,97 @@ test('conversion routes GIF to animated preview, keeps video comparison for MP4 
   assert.equal(get('pixelAnimationResult').hidden,true);assert.equal(get('pixelVideoResult').hidden,false);
   assert.equal(get('btnVideoCompare').disabled,false);assert.equal(get('videoSaveLink').download,'video_pixel_1x.mp4');
   run('clearVideoCompareFrames()');assert(canvases.every(c=>c.width===1&&c.height===1));
+});
+
+test('comparison axis switches clipping, divider positions and pointer coordinate without reprocessing',()=>{
+  const {context,get,run}=app();
+  let processed=0;context.process=()=>processed++;
+  get('pixelVideoResult').currentTime=2.5;
+  run("suppressAutoApply=true;viewMode='slider';compareSliderPos=25;videoCompareRatio=75;setCompareAxis('y')");
+  assert.equal(get('compareDirection').hidden,false);
+  assert.equal(get('compareOverlay').style.clipPath,'inset(0 0 75% 0)');
+  assert.equal(get('compareDivider').style.top,'calc(25% - 1px)');
+  assert.equal(get('compareHandle').style.top,'25%');
+  assert.equal(get('videoCompareDivider').style.top,'75%');
+  assert.equal(get('videoCompareDivider').attributes['aria-orientation'],'vertical');
+  assert.equal(get('videoCompareProcessed').style.clipPath,'inset(0 0 25% 0)');
+  assert.equal(context.comparePointerPosition({clientX:150,clientY:30},{left:10,top:10,width:200,height:100}),20);
+  run("setCompareAxis('x')");
+  assert.equal(get('compareOverlay').style.clipPath,'inset(0 75% 0 0)');
+  assert.equal(get('compareDivider').style.top,'0');assert.equal(get('compareHandle').style.top,'50%');
+  assert.equal(get('videoCompareDivider').style.top,'0');assert.equal(get('videoCompareDivider').style.left,'75%');
+  assert.equal(context.comparePointerPosition({clientX:150,clientY:30},{left:10,top:10,width:200,height:100}),70);
+  assert.equal(processed,0);
+  assert.equal(get('pixelVideoResult').currentTime,2.5);
+  assert.equal(run('getSettingsPayload().compareAxis'),'x');
+  run("setCompareAxis('y');initVideoComparison()");
+  get('videoCompareDivider').events.keydown({key:'ArrowDown',preventDefault(){}});
+  assert.equal(run('videoCompareRatio'),76);
+});
+
+test('direction controls only appear in an active image/video slider comparison',()=>{
+  const {get,run}=app();
+  for(const [media,view,videoView,hidden] of [['image','both','source',true],['image','slider','source',false],['video','slider','source',true],['video','both','compare',false]]){
+    run(`currentMedia='${media}';viewMode='${view}';pixelVideoView='${videoView}';updateCompareDirectionUI()`);
+    assert.equal(get('compareDirection').hidden,hidden);
+  }
+});
+
+test('dot presets preserve color/dither/random preferences and process an image once',()=>{
+  const {context,get,run}=app();
+  const selected={dataset:{dotCount:'128'},setAttribute(name,value){this[name]=value;}};
+  context.document.querySelectorAll=()=>[selected];
+  let processed=0;
+  context.process=()=>processed++;
+  context.scheduleSettingsSave=()=>{};
+  run("origImg={width:800,height:400};retroMode='pc98';ditherMode='fs';retroDeterministic=true;applyDotPreset('dotcount',128)");
+  assert.equal(run('specMode'),'dotcount');assert.equal(get('dotCountNumInline').value,128);
+  assert.deepEqual(Array.from(run('getSmallSize()')),[128,64]);
+  assert.equal(run('retroMode'),'pc98');assert.equal(run('ditherMode'),'fs');assert.equal(run('retroDeterministic'),true);
+  assert.equal(selected['aria-pressed'],'true');assert.equal(processed,1);
+  run("currentMedia='video';applyDotPreset('dotsize',8)");
+  assert.equal(processed,1);assert.equal(get('dotNumInline').value,8);
+  assert.match(get('statusBox').textContent,/動画を変換/);
+  assert.equal(run('getSettingsPayload().dotSize'),8);
+});
+
+test('SFC mode produces bounded unique RGB555 colors and reproducible optional output',()=>{
+  const {context,run}=app();
+  const levels=new Set(Array.from({length:32},(_,i)=>Math.round(i*255/31)));
+  const pixels=new Uint8ClampedArray(1024*4);
+  for(let i=0;i<1024;i++) pixels.set([i%256,(i*23)%256,(i*73)%256,255],i*4);
+  run("suppressAutoApply=true;switchRetroMode('sfc')");
+  assert.equal(run('getRetroPalette().length'),32768);
+  for(const count of [2,32,256]){
+    const colors=context.reduceRetroKMeans({data:pixels},run('getRetroPalette()'),count,0,10,true);
+    assert(colors.length>0&&colors.length<=count);
+    assert(colors.every(color=>color.every(value=>levels.has(value))));
+    assert.equal(new Set(colors.map(c=>c.join(','))).size,colors.length);
+    assert.deepEqual(colors,context.reduceRetroKMeans({data:pixels},run('getRetroPalette()'),count,0,10,true));
+  }
+  run("syncRetroCount('SFC',500)");assert.equal(run('retroCountVal.sfc'),256);
+  assert.equal(run('getSettingsPayload().retroMode'),'sfc');
+});
+
+test('SFC preset sets palette and drawing options with only one image reprocess',()=>{
+  const {context,get,run}=app();let processed=0;
+  context.process=()=>processed++;
+  context.scheduleSettingsSave=()=>{};
+  run("origImg={width:100,height:100};dotCanvas={};applyPreset('sfc')");
+  assert.equal(processed,1);assert.equal(run('retroMode'),'sfc');assert.equal(run('retroCountVal.sfc'),32);
+  assert.equal(run('pixelMode'),'B');assert.equal(run('ditherMode'),'bayer');
+  assert.equal(get('retroInfoSFC').style.display,'');assert.equal(get('retroInfoPC98').style.display,'none');
+  assert.equal(get('crtAspect').checked,false);assert.equal(run('retroDeterministic'),false);
+});
+
+test('saved SFC count, dot settings and comparison direction restore; old settings default safely',()=>{
+  const {context,get,run}=app();
+  for(const fn of ['renderRow','updateCRTOverlay','updateExportSection','renderPriorityList','setExportScale','setExportAlg','switchTheme']) context[fn]=()=>{};
+  context.scheduleSettingsSave=()=>{};
+  run("applySettingsPayload({retroMode:'sfc',retroCount:{sfc:48},specMode:'dotcount',dotCount:128,compareAxis:'y',customMode:false})");
+  assert.equal(run('retroMode'),'sfc');assert.equal(run('retroCountVal.sfc'),48);
+  assert.equal(get('dotCountNumInline').value,128);assert.equal(run('compareAxis'),'y');
+  assert.equal(run('getSettingsPayload().compareAxis'),'y');
+  run("applySettingsPayload({retroMode:'fc',retroCount:{fc:12,pce:16,pc98:16},customMode:false})");
+  assert.equal(run('retroMode'),'fc');assert.equal(run('retroCountVal.sfc'),32);assert.equal(run('compareAxis'),'x');
 });
