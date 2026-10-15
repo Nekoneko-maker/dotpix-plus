@@ -14,6 +14,7 @@ Drop an image or a short video to create pixel art. Media files are processed lo
 - PNG保存、1ドット=1pxの等倍保存、一括変換してZIP出力
 - 短い動画の区間指定、FPS設定、等倍 / 原寸出力、進捗とキャンセル
 - 動画の音声なし / 元音声 / 44.1・22.05・11.025kHz加工
+- 音声のモノラル化（左右をミックス、設定を自動保存）。FC風・PCE風は常にモノラルです。
 - FC風 / PCE風 / PC-98 PCM風 / SFC風の音声質感加工
 - コンパクトな折りたたみUI、4種類のテーマ、設定の自動保存
 
