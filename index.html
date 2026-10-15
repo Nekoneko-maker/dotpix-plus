@@ -479,14 +479,15 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .video-view { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .video-view video, .video-view canvas { display: block; width: 100%; max-height: calc(100dvh - 190px); object-fit: contain; }
 .video-view.video-compare {
-  position: relative; display: grid; height: min(55dvh, 480px);
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: min(55dvh, 480px);
   align-self: center; background: #090909; cursor: ew-resize; touch-action: none;
 }
 .video-view.video-compare video {
-  grid-area: 1 / 1; width: 100%; height: 100%; min-height: 0;
-  max-height: none !important; pointer-events: none; object-fit: fill;
+  grid-area: 1 / 1; width: 100%; height: 100%; min-height: 0; min-width: 0;
+  max-height: none !important; pointer-events: none; object-fit: fill; opacity: 0;
 }
-.video-view.video-compare #pixelVideoResult { z-index: 1; }
+.video-compare-image { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none !important; object-fit: fill; pointer-events: none; }
+#videoCompareProcessed { z-index: 1; }
 .video-compare-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 2; pointer-events: none; }
 .video-compare-divider::after { content: ''; position: absolute; top: calc(50% - 10px); left: -8px; width: 18px; height: 20px; border-radius: 6px; border: 2px solid var(--accent); background: var(--surface); }
 .video-compare-controls { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
@@ -1285,6 +1286,9 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <video id="pixelVideoSource" controls muted playsinline preload="auto" hidden></video>
         <canvas id="videoFramePreview" style="width:100%;max-height:420px;object-fit:contain" hidden></canvas>
         <video id="pixelVideoResult" controls playsinline style="width:100%;max-height:420px;image-rendering:pixelated" hidden></video>
+        <video id="videoCompareDecoder" muted playsinline preload="auto" hidden></video>
+        <canvas class="video-compare-image" id="videoCompareOriginal" hidden style="image-rendering:auto"></canvas>
+        <canvas class="video-compare-image" id="videoCompareProcessed" hidden></canvas>
         <div class="video-compare-divider" id="videoCompareDivider" hidden></div>
       </div>
       <div class="video-compare-controls" id="videoCompareControls" hidden>
@@ -1294,8 +1298,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
           <button class="btn" id="videoComparePlay" onclick="toggleVideoComparePlayback()">再生</button>
           <input type="range" id="videoCompareTime" min="0" max="1" value="0" step="0.01" aria-label="比較動画の再生位置" oninput="seekVideoComparison(this.value)" onchange="finishVideoCompareSeek()">
           <time id="videoCompareClock">0.00 / 0.00秒</time>
-          <label class="hint" for="videoCompareVolume">音量</label>
-          <input type="range" id="videoCompareVolume" min="0" max="100" value="80" aria-label="比較動画の音量" oninput="updateVideoCompareMix()" style="max-width:100px;min-width:60px">
+          <label class="hint" for="videoCompareVolume" title="比較再生全体の音量。保存動画には影響しません。">試聴音量</label>
+          <input type="range" id="videoCompareVolume" min="0" max="100" value="80" aria-label="比較再生全体の試聴音量（保存には影響しません）" oninput="updateVideoCompareMix()" style="max-width:100px;min-width:60px">
         </div>
         <div class="mini-meta" id="videoCompareStatus" role="status"></div>
       </div>
@@ -3235,6 +3239,8 @@ function setMediaMode(mode){
     setVideoView('source');
   } else {
     pauseVideoComparison();
+    stopVideoCompareVisuals();
+    clearVideoCompareFrames();
     document.getElementById('videoCompareControls').hidden=true;
     document.getElementById('pixelVideoSource').pause();
     document.getElementById('pixelVideoResult').pause();
@@ -3245,9 +3251,10 @@ function setMediaMode(mode){
 
 function setVideoView(view){
   pauseVideoComparison();
+  stopVideoCompareVisuals();
   videoCompareResumeSeek=false;
   restoreVideoCompareVolume();
-  const comparing=view==='compare'&&videoOutputKind==='video'&&!!pixelVideoResultRange;
+  const comparing=view==='compare'&&videoOutputKind==='video'&&!!pixelVideoResultRange&&pixelVideoCompareFrames.length>0;
   const result=(view==='result'||comparing)&&!!videoOutputKind;
   pixelVideoView=comparing?'compare':result?'result':'source';
   const source=document.getElementById('pixelVideoSource');
@@ -3260,10 +3267,12 @@ function setVideoView(view){
   document.getElementById('btnVideoResult').className='tab'+(result&&!comparing?' active':'');
   document.getElementById('btnVideoCompare').className='tab'+(comparing?' active':'');
   document.getElementById('btnVideoResult').disabled=!videoOutputKind;
-  document.getElementById('btnVideoCompare').disabled=videoOutputKind!=='video'||!pixelVideoResultRange;
+  document.getElementById('btnVideoCompare').disabled=videoOutputKind!=='video'||!pixelVideoResultRange||!pixelVideoCompareFrames.length;
   document.getElementById('videoResultSection').classList.toggle('video-compare',comparing);
   document.getElementById('videoCompareDivider').hidden=!comparing;
   document.getElementById('videoCompareControls').hidden=!comparing;
+  document.getElementById('videoCompareOriginal').hidden=!comparing;
+  document.getElementById('videoCompareProcessed').hidden=!comparing;
   source.controls=output.controls=!comparing;
   if(comparing){
     sizeVideoCompareStage();
@@ -3274,6 +3283,7 @@ function setVideoView(view){
     document.getElementById('videoCompareStatus').textContent='同じ区間を同期再生します。比較スライダーは音声のクロスフェーダーも兼ねます（保存動画には影響しません）。';
     setVideoCompareRatio(document.getElementById('videoCompareRange').value);
     updateVideoCompareClock();
+    startVideoCompareVisuals();
   } else {
     document.getElementById('videoResultSection').style.width='';
     document.getElementById('videoResultSection').style.height='';
@@ -3310,6 +3320,75 @@ let forceVideoAudioMono=false, pixelVideoResultChannels=0;
 let pixelVideoName='video', pixelVideoLoadId=0;
 let pixelVideoResultRange=null, videoCompareFrame=null, videoCompareAudio=null;
 let videoCompareVolumeState=null, videoCompareResumeSeek=false, videoComparePlayId=0;
+let videoCompareVisual=null;
+let pixelVideoCompareFrames=[];
+
+function clearVideoCompareFrames(){
+  pixelVideoCompareFrames.forEach(frame=>{frame.width=frame.height=1;});
+  pixelVideoCompareFrames=[];
+  document.getElementById('btnVideoCompare').disabled=true;
+}
+
+function stopVideoCompareVisuals(){
+  if(!videoCompareVisual) return;
+  videoCompareVisual.controller.abort();
+  cancelAnimationFrame(videoCompareVisual.fallback);
+  const decoder=document.getElementById('videoCompareDecoder');
+  decoder.pause();decoder.removeAttribute('src');decoder.load();
+  videoCompareVisual=null;
+}
+
+function startVideoCompareVisuals(){
+  const output=document.getElementById('pixelVideoResult');
+  const decoder=document.getElementById('videoCompareDecoder');
+  const state={controller:new AbortController(),busy:false,frameIndex:-1,fallback:null,buffer:document.createElement('canvas')};
+  videoCompareVisual=state;
+  const signal=state.controller.signal;
+  state.ready=decoder.src===pixelVideoInputURL&&decoder.readyState>=2
+    ? Promise.resolve()
+    : waitVideoEvent(decoder,'loadeddata',signal,()=>{decoder.src=pixelVideoInputURL;decoder.load();});
+  state.ready.catch(()=>{});
+  const frame=()=>{
+    if(signal.aborted) return;
+    const index=Math.min(pixelVideoCompareFrames.length-1,Math.floor(output.currentTime*(pixelVideoResultRange.fps||12)));
+    if(index!==state.frameIndex) renderVideoComparePair(output.currentTime,state);
+    state.fallback=requestAnimationFrame(frame);
+  };
+  state.fallback=requestAnimationFrame(frame);
+  renderVideoComparePair(output.currentTime,state);
+}
+
+async function renderVideoComparePair(mediaTime,state=videoCompareVisual){
+  if(!state||state.busy||state.controller.signal.aborted||pixelVideoView!=='compare') return;
+  const output=document.getElementById('pixelVideoResult');
+  if(output.readyState<2) return;
+  state.busy=true;
+  const signal=state.controller.signal;
+  try{
+    const range=pixelVideoResultRange,fps=range.fps||12;
+    const index=Math.max(0,Math.min(pixelVideoCompareFrames.length-1,Math.floor(mediaTime*fps)));
+    const converted=pixelVideoCompareFrames[index];
+    if(!converted) return;
+    const source=document.getElementById('pixelVideoSource');
+    const width=Math.min(960,source.videoWidth),height=Math.max(1,Math.round(width*source.videoHeight/source.videoWidth));
+    // Use the exact generated frame, avoiding encoded-video timestamp offsets.
+    state.buffer.width=width;state.buffer.height=height;
+    const captured=state.buffer.getContext('2d');captured.imageSmoothingEnabled=false;
+    captured.drawImage(converted,0,0,width,height);
+    await state.ready;
+    const decoder=document.getElementById('videoCompareDecoder');
+    await seekPixelVideo(decoder,range.start+index/fps,signal);
+    if(signal.aborted||state!==videoCompareVisual) return;
+    const original=document.getElementById('videoCompareOriginal'),processed=document.getElementById('videoCompareProcessed');
+    if(original.width!==width||original.height!==height){original.width=processed.width=width;original.height=processed.height=height;}
+    // Commit both images together; audio uses the two uninterrupted players.
+    original.getContext('2d').drawImage(decoder,0,0,width,height);
+    processed.getContext('2d').drawImage(state.buffer,0,0);
+    state.frameIndex=index;
+  }catch(e){
+    if(e.name!=='AbortError') document.getElementById('videoCompareStatus').textContent='比較フレームを読み込めません。比較表示を開き直してください。';
+  }finally{state.busy=false;}
+}
 
 function videoCompareDuration(){
   const duration=document.getElementById('pixelVideoResult').duration;
@@ -3369,7 +3448,7 @@ function setVideoCompareRatio(value){
   document.getElementById('videoCompareRange').value=pos;
   document.getElementById('videoCompareRatio').textContent=`加工後 ${pos}%`;
   document.getElementById('videoCompareDivider').style.left=pos+'%';
-  if(pixelVideoView==='compare') document.getElementById('pixelVideoResult').style.clipPath=`inset(0 ${100-pos}% 0 0)`;
+  document.getElementById('videoCompareProcessed').style.clipPath=`inset(0 ${100-pos}% 0 0)`;
   updateVideoCompareMix();
 }
 
@@ -3411,6 +3490,7 @@ async function toggleVideoComparePlayback(){
   const id=++videoComparePlayId;
   document.getElementById('videoComparePlay').disabled=true;
   try{
+    if(!videoCompareVisual) startVideoCompareVisuals();
     await ensureVideoCompareAudio();
     const signal=new AbortController().signal;
     if(output.readyState<3) await waitVideoEvent(output,'canplay',signal,()=>{});
@@ -3604,6 +3684,7 @@ async function loadPixelVideo(input,generation=mediaLoadGeneration){
   document.getElementById('mediaConvertBtn').disabled=true;
   document.getElementById('videoPreviewBtn').disabled=true;
   pauseVideoComparison();
+  stopVideoCompareVisuals();
   video.removeAttribute('src');
   video.load();
   if(pixelVideoInputURL) URL.revokeObjectURL(pixelVideoInputURL);
@@ -3619,6 +3700,7 @@ async function loadPixelVideo(input,generation=mediaLoadGeneration){
     video.muted=false;
     pixelVideoResultAudio='none';
     videoOutputKind=null;
+    clearVideoCompareFrames();
     pixelVideoResultRange=null;
     document.getElementById('videoSaveLink').hidden=true;
     document.getElementById('pixelVideoResult').pause();
@@ -3770,6 +3852,11 @@ async function runPixelVideo(previewOnly){
   let audioContext=null,audioBuffer=null;
   try{
     pauseVideoComparison();
+    stopVideoCompareVisuals();
+    if(!previewOnly){
+      if(pixelVideoView==='compare') setVideoView('result');
+      clearVideoCompareFrames();
+    }
     document.getElementById('pixelVideoResult').pause();
     if(withAudio){
       const Context=window.AudioContext||window.webkitAudioContext;
@@ -3808,6 +3895,7 @@ async function runPixelVideo(previewOnly){
       const sc=still.getContext('2d');sc.imageSmoothingEnabled=false;
       sc.drawImage(frame,0,0,still.width,still.height);
       frame.width=frame.height=1;
+      clearVideoCompareFrames();
       videoOutputKind='frame';
       setVideoView('result');
       document.getElementById('videoSaveLink').hidden=true;
@@ -3836,7 +3924,8 @@ async function runPixelVideo(previewOnly){
     result.muted=!withAudio;
     pixelVideoResultAudio=audioMode;
     pixelVideoResultChannels=audioBuffer?.numberOfChannels||0;
-    pixelVideoResultRange={start,duration};
+    pixelVideoResultRange={start,duration,fps};
+    pixelVideoCompareFrames=frames;
     videoOutputKind='video';
     setVideoView('result');
     const link=document.getElementById('videoSaveLink');
@@ -3846,7 +3935,7 @@ async function runPixelVideo(previewOnly){
     section.scrollIntoView({behavior:'smooth',block:'center'});
   }catch(e){status.textContent=e.name==='AbortError'?'変換を中止しました。画面を表示した状態で再実行できます。':e.message;}
   finally{
-    frames.forEach(frame=>{frame.width=frame.height=1;});
+    if(frames!==pixelVideoCompareFrames) frames.forEach(frame=>{frame.width=frame.height=1;});
     raw.width=raw.height=1;
     audioBuffer=null;
     if(audioContext&&audioContext.state!=='closed') await audioContext.close().catch(()=>{});
