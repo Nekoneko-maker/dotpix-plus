@@ -1153,7 +1153,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <span class="collapse-arrow">▼</span>
       </div>
       <div class="section-body">
-        <div class="hint">複数の画像を現在の設定で変換し、ZIPでまとめてダウンロードします。</div>
+        <div class="hint">複数の画像を現在の設定で変換し、PNGをZIPにまとめます。GIFは先頭フレームのみ。他のアニメ画像も静止画1枚として出力します。</div>
         <button class="btn" onclick="document.getElementById('batchFileInput').click()" style="width:100%;margin-top:2px">画像を選択（複数可）</button>
         <input type="file" id="batchFileInput" accept="image/*" multiple style="display:none" onchange="onBatchFilesChange(this)">
         <div id="batchFileInfo" style="display:none;font-size:11px;color:var(--text2)"></div>
@@ -1307,7 +1307,8 @@ let retroMode='off'; // 'off' | 'fc' | 'pce' | 'pc98'
 let customMode=false, customPaletteFull=[], customCountVal2=16;
 let currentPalette=[], processedSmallCanvas=null, exportPreviewCache=null, lastProcessSignature='';
 // レトロ色数は DOM ではなくこの変数を正とする
-const retroCountVal={fc:12,pce:16,pc98:16};
+const DEFAULT_RETRO_COUNTS=Object.freeze({fc:12,pce:16,pc98:16});
+const retroCountVal={...DEFAULT_RETRO_COUNTS};
 let retroDebounce=null;
 let retroBrightBias=0; // -1 (暗い) ~ 0 (標準) ~ 1 (明るい)
 let retroDeterministic=false;
@@ -1583,7 +1584,7 @@ function resetSettings(){
     theme:'dark',specMode:'dotsize',dotSize:4,dotCount:64,
     pixelMode:'A',edgeStr:40,ditherMode:'none',bayerSize:'4x4',ditherSpread:50,
     palNum:16,gray:false,weight:4,retroMode:'off',
-    retroCount:{fc:12,pce:24,pc98:32},retroBright:0,retroDeterministic:false,
+    retroCount:{...DEFAULT_RETRO_COUNTS},retroBright:0,retroDeterministic:false,
     customMode:false,customPaletteFull:[],customCountVal2:16,
     priorityColors:[],exportScale:3,exportAlg:'nn',viewMode:'both',
     crt:{enabled:false,scanlines:true,bloom:true,noise:false,vignette:true,aspect:false,pceRes:'256'},
@@ -3012,7 +3013,8 @@ function onBatchFilesChange(input){
   grid.innerHTML='';
   if(n>0){
     info.style.display='block';
-    info.textContent=`${n}件選択中`;
+    const gifCount=Array.from(files).filter(f=>f.type==='image/gif'||/\.gif$/i.test(f.name)).length;
+    info.textContent=`${n}件選択中`+(gifCount?` / GIF ${gifCount}件：先頭フレームのみ`:'');
     btn.disabled=false;
     grid.style.display='flex';
     Array.from(files).forEach((f,i)=>{
@@ -3021,9 +3023,13 @@ function onBatchFilesChange(input){
       wrap.style.cssText='position:relative;width:56px;flex-shrink:0;text-align:center';
       const img=document.createElement('img');
       img.style.cssText='width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--border2);image-rendering:pixelated;display:block';
-      const reader=new FileReader();
-      reader.onload=ev=>{ img.src=ev.target.result; };
-      reader.readAsDataURL(f);
+      loadImageFromFile(f).then(source=>{
+        const thumb=document.createElement('canvas');thumb.width=56;thumb.height=56;
+        const scale=Math.min(56/source.width,56/source.height);
+        const w=source.width*scale,h=source.height*scale;
+        thumb.getContext('2d').drawImage(source,(56-w)/2,(56-h)/2,w,h);
+        img.src=thumb.toDataURL('image/png');
+      }).catch(()=>{img.alt='読み込み不可';});
       const label=document.createElement('div');
       label.style.cssText='font-size:9px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:56px';
       label.textContent=f.name.replace(/\.[^.]+$/,'');
