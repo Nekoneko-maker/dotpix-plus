@@ -1298,8 +1298,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
           <button class="btn" id="videoComparePlay" onclick="toggleVideoComparePlayback()">再生</button>
           <input type="range" id="videoCompareTime" min="0" max="1" value="0" step="0.01" aria-label="比較動画の再生位置" oninput="seekVideoComparison(this.value)" onchange="finishVideoCompareSeek()">
           <time id="videoCompareClock">0.00 / 0.00秒</time>
-          <label class="hint" for="videoCompareVolume" title="比較再生全体の音量。保存動画には影響しません。">試聴音量</label>
-          <input type="range" id="videoCompareVolume" min="0" max="100" value="80" aria-label="比較再生全体の試聴音量（保存には影響しません）" oninput="updateVideoCompareMix()" style="max-width:100px;min-width:60px">
+          <label class="hint" for="videoCompareVolume" title="比較再生のマスター音量。保存動画には影響しません。">試聴音量 <span id="videoCompareVolumeValue">80%</span></label>
+          <input type="range" id="videoCompareVolume" min="0" max="100" value="80" aria-label="比較再生のマスター音量（保存には影響しません）" oninput="updateVideoCompareMix()" onchange="updateVideoCompareMix()" style="max-width:100px;min-width:60px">
         </div>
         <div class="mini-meta" id="videoCompareStatus" role="status"></div>
       </div>
@@ -3413,17 +3413,30 @@ function restoreVideoCompareVolume(){
 }
 
 function updateVideoCompareMix(){
-  if(!videoCompareAudio) return;
-  const {context,original,processed}=videoCompareAudio;
   const ratio=Number(document.getElementById('videoCompareRange').value)/100;
   const comparing=pixelVideoView==='compare'&&currentMedia==='video';
-  const volume=Number(document.getElementById('videoCompareVolume').value)/100;
+  const volume=Math.max(0,Math.min(1,Number(document.getElementById('videoCompareVolume').value)/100));
+  document.getElementById('videoCompareVolumeValue').textContent=Math.round(volume*100)+'%';
+  if(comparing){
+    // Also mute the elements at zero, including native playback paths.
+    document.getElementById('pixelVideoSource').muted=volume===0;
+    document.getElementById('pixelVideoResult').muted=volume===0||pixelVideoResultAudio==='none';
+  }
+  if(!videoCompareAudio) return;
+  const {context,original,processed,master}=videoCompareAudio;
   // Linear complementary gains avoid boosting identical audio at the midpoint.
-  const a=comparing?(1-ratio)*volume:pixelVideoView==='source'?1:0;
-  const b=comparing?ratio*volume:pixelVideoView==='result'?1:0;
+  const a=comparing?1-ratio:pixelVideoView==='source'?1:0;
+  const b=comparing?ratio:pixelVideoView==='result'?1:0;
   for(const [node,value] of [[original,a],[processed,b]]){
     node.gain.cancelScheduledValues(context.currentTime);
     node.gain.setTargetAtTime(value,context.currentTime,0.015);
+  }
+  const level=comparing?volume:1;
+  master.gain.cancelScheduledValues(context.currentTime);
+  if(level===0) master.gain.setValueAtTime(0,context.currentTime);
+  else {
+    master.gain.setValueAtTime(master.gain.value,context.currentTime);
+    master.gain.linearRampToValueAtTime(level,context.currentTime+0.02);
   }
 }
 
@@ -3432,12 +3445,13 @@ async function ensureVideoCompareAudio(){
     const Context=window.AudioContext||window.webkitAudioContext;
     if(!Context) throw new Error('このブラウザでは音声クロスフェードを利用できません。');
     const context=new Context();
-    const original=context.createGain(),processed=context.createGain();
+    const original=context.createGain(),processed=context.createGain(),master=context.createGain();
     original.gain.value=processed.gain.value=0;
+    master.gain.value=0;
     context.createMediaElementSource(document.getElementById('pixelVideoSource')).connect(original);
     context.createMediaElementSource(document.getElementById('pixelVideoResult')).connect(processed);
-    original.connect(context.destination);processed.connect(context.destination);
-    videoCompareAudio={context,original,processed};
+    original.connect(master);processed.connect(master);master.connect(context.destination);
+    videoCompareAudio={context,original,processed,master};
   }
   await videoCompareAudio.context.resume();
   updateVideoCompareMix();
