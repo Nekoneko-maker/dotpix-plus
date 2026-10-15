@@ -842,6 +842,13 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
       </div>
     </div>
 
+    <div id="videoJobPanel" class="flow-card" hidden>
+      <div class="mini-meta" id="videoStatus" role="status" aria-live="polite"></div>
+      <progress id="videoProgress" value="0" max="1" style="width:100%" aria-label="動画変換の進捗" hidden></progress>
+      <button class="btn" id="videoResumeBtn" onclick="resumeVideoJobAudio()" hidden>音声処理を再開</button>
+      <button class="btn danger" id="videoCancelBtn" onclick="cancelPixelVideo()" hidden>キャンセル</button>
+    </div>
+
     <!-- Dot size (collapsible) -->
     <div class="section collapsed" id="secDotSize">
       <div class="section-header collapsible" onclick="toggleSection('secDotSize')">
@@ -1275,11 +1282,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
         <div class="toggle-row"><label class="toggle"><input type="checkbox" id="videoAudioMono" onchange="setVideoAudioMono(this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label><label for="videoAudioMono">モノラル化（左右をまとめる）</label></div>
         <div class="mini-meta" id="videoAudioHint">変換後は無音です。音量バーが表示されても音声は含まれません。</div>
         <div class="toggle-row"><label class="toggle"><input type="checkbox" id="videoDotSize" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>等倍出力（1ドット = 1px）</div>
-        <details class="help-details"><summary>動画出力について</summary><div class="hint">再現性重視がOFFなら、変換ごとに色選びが変わります。原寸は長辺1920pxまで。保存形式は変換前に選んでください。WebM / MP4はブラウザの対応形式のみ利用できます。GIF / WebPは無音のループアニメです（シーク・スライダー比較なし）。GIFは最大256色、WebPは非可逆圧縮です。アニメ出力は全フレーム合計6400万画素・128MBまで。音声の周波数指定は加工時の値で、保存時の周波数はコーデックに従います。元音声も保存時に再圧縮します。音声付き変換の入力は3分・128MBまで。書き出し中はこの画面を表示したままにしてください。</div></details>
+        <details class="help-details"><summary>動画出力について</summary><div class="hint">再現性重視がOFFなら、変換ごとに色選びが変わります。原寸は長辺1920pxまで。保存形式は変換前に選んでください。WebM / MP4はブラウザの対応形式のみ利用できます。GIF / WebPは無音のループアニメです（シーク・スライダー比較なし）。GIFは最大256色、WebPは非可逆圧縮です。アニメ出力は全フレーム合計6400万画素・128MBまで。音声の周波数指定は加工時の値で、保存時の周波数はコーデックに従います。元音声も保存時に再圧縮します。音声付き変換の入力は3分・128MBまで。タブを離れると待機し、戻ると自動再開します。録画中に離れた場合は、録画工程のみ最初から再開します。タブ自体を閉じると処理は失われます。</div></details>
         <button class="btn" id="videoPreviewBtn" onclick="runPixelVideo(true)" disabled>先頭フレームを確認</button>
-        <button class="btn danger" id="videoCancelBtn" onclick="cancelPixelVideo()" hidden>キャンセル</button>
-        <progress id="videoProgress" value="0" max="1" style="width:100%" hidden></progress>
-        <div class="mini-meta" id="videoStatus" role="status" aria-live="polite"></div>
       </div>
     </div>
   </aside>
@@ -3374,6 +3378,7 @@ function setMediaMode(mode){
   document.getElementById('mediaTypeLabel').textContent=isVideo?'動画':'画像';
   document.getElementById('imageSaveActions').hidden=isVideo;
   document.getElementById('secVideo').hidden=!isVideo;
+  document.getElementById('videoJobPanel').hidden=!isVideo;
   document.getElementById('canvasRow').hidden=isVideo;
   document.getElementById('displayEffects').hidden=isVideo;
   document.getElementById('videoResultSection').hidden=!isVideo;
@@ -3477,6 +3482,7 @@ let videoCompareVolumeState=null, videoCompareResumeSeek=false;
 let videoCompareVisual=null;
 let videoCompareRatio=50;
 let videoComparePlayback=null;
+let pixelVideoAudioContext=null;
 let pixelVideoCompareFrames=[];
 
 function clearVideoCompareFrames(){
@@ -3976,13 +3982,66 @@ async function loadPixelVideo(input,generation=mediaLoadGeneration){
 
 function cancelPixelVideo(){pixelVideoJob?.abort();}
 
+function resumeVideoJobAudio(){
+  pixelVideoAudioContext?.resume().catch(()=>{
+    document.getElementById('videoStatus').textContent='音声処理を再開できません。もう一度「音声処理を再開」を押すか、キャンセルしてください。';
+  });
+}
+
+function waitForVideoVisibility(signal){
+  videoCheck(signal);
+  if(!document.hidden) return Promise.resolve();
+  document.getElementById('videoStatus').textContent='タブを離れたため待機中です。この画面に戻ると自動再開します（変換済みフレームは保持）。';
+  return new Promise((resolve,reject)=>{
+    const clean=()=>{document.removeEventListener('visibilitychange',visible);signal.removeEventListener('abort',abort);};
+    const visible=()=>{if(!document.hidden){clean();document.getElementById('videoStatus').textContent='変換を再開しています...';resolve();}};
+    const abort=()=>{clean();reject(new DOMException('キャンセルしました。','AbortError'));};
+    document.addEventListener('visibilitychange',visible);
+    signal.addEventListener('abort',abort,{once:true});
+    if(signal.aborted) abort();else visible();
+  });
+}
+
+// Retry only the interrupted step, never retain a recording with missing frames.
+async function runVisibleVideoTask(task,signal){
+  while(true){
+    await waitForVideoVisibility(signal);
+    const attempt=new AbortController();let hidden=false;
+    const abort=()=>attempt.abort();
+    const visibility=()=>{if(document.hidden){hidden=true;attempt.abort();}};
+    signal.addEventListener('abort',abort,{once:true});
+    document.addEventListener('visibilitychange',visibility);
+    try{
+      videoCheck(signal);visibility();
+      const result=await task(attempt.signal);
+      videoCheck(signal);
+      if(!hidden&&!document.hidden) return result;
+    }catch(e){
+      videoCheck(signal);
+      if(!hidden) throw e;
+    }finally{
+      signal.removeEventListener('abort',abort);
+      document.removeEventListener('visibilitychange',visibility);
+    }
+  }
+}
+
+async function resumeVideoExportAudio(context,signal){
+  if(!context||context.state==='running') return;
+  const button=document.getElementById('videoResumeBtn');button.hidden=false;
+  document.getElementById('videoStatus').textContent='音声出力の再開を待っています。進まない場合は「音声処理を再開」を押してください。';
+  try{await videoAudioTask(context.resume(),signal);}
+  finally{button.hidden=true;}
+}
+
 function setVideoBusy(busy){
   // Lock processing settings while asynchronous video work uses them.
-  document.querySelectorAll('.sidebar > *').forEach(el=>{if(el.id!=='secVideo') el.inert=busy;});
+  document.querySelectorAll('.sidebar > *').forEach(el=>{if(!['secVideo','videoJobPanel'].includes(el.id)) el.inert=busy;});
   document.querySelector('main').inert=busy;
   document.querySelectorAll('#secVideo input, #secVideo select, #mediaConvertBtn, #videoPreviewBtn').forEach(el=>el.disabled=busy);
   document.getElementById('videoCancelBtn').hidden=!busy;
   document.getElementById('videoProgress').hidden=!busy;
+  if(!busy) document.getElementById('videoResumeBtn').hidden=true;
   if(!busy) updateVideoAudioHint(false);
 }
 
@@ -4190,6 +4249,7 @@ async function encodePixelAnimation(canvas,frames,fps,duration,format,palette,si
   let size=0,alpha=false;
   const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
   for(let i=0;i<frames.length;i++){
+    await waitForVideoVisibility(signal);
     videoCheck(signal);
     if(format==='gif'){
       const control=new Uint8Array([33,249,4,4,0,0,0,0]);
@@ -4276,8 +4336,8 @@ async function runPixelVideo(previewOnly){
   setVideoBusy(true);
   clearTimeout(retroDebounce);
   progress.value=0;
-  const onHidden=()=>{if(document.hidden) controller.abort();};
-  document.addEventListener('visibilitychange',onHidden);
+  const onClose=e=>{e.preventDefault();e.returnValue='';};
+  window.addEventListener('beforeunload',onClose);
   let audioContext=null,audioBuffer=null;
   try{
     pauseVideoComparison();
@@ -4287,13 +4347,14 @@ async function runPixelVideo(previewOnly){
       clearVideoCompareFrames();
     }
     video=document.getElementById('pixelVideoSource');
-    if(video.readyState<2) await waitVideoEvent(video,'loadeddata',signal,()=>{});
+    await runVisibleVideoTask(active=>video.readyState>=2?Promise.resolve():waitVideoEvent(video,'loadeddata',active,()=>{}),signal);
     document.getElementById('pixelVideoResult').pause();
     if(withAudio){
       const Context=window.AudioContext||window.webkitAudioContext;
       if(!Context) throw new Error('このブラウザは音声付き変換に対応していません。「音声なし」を選ぶか別のブラウザで試してください。');
       audioContext=new Context();
-      await videoAudioTask(audioContext.resume(),signal);
+      pixelVideoAudioContext=audioContext;
+      await runVisibleVideoTask(active=>resumeVideoExportAudio(audioContext,active),signal);
       status.textContent=`音声を準備中：${VIDEO_AUDIO_MODES[audioMode].label}...`;
       audioBuffer=await prepareVideoAudio(audioMode,audioContext,start,duration,signal);
     }
@@ -4301,7 +4362,7 @@ async function runPixelVideo(previewOnly){
     const sheet=document.createElement('canvas');sheet.width=96*8;sheet.height=96;
     const sampleCtx=sheet.getContext('2d');
     for(let i=0;i<8;i++){
-      await seekPixelVideo(video,start+duration*(i+0.5)/8,signal);
+      await runVisibleVideoTask(active=>seekPixelVideo(video,start+duration*(i+0.5)/8,active),signal);
       sampleCtx.drawImage(video,i*96,0,96,96);
     }
     const sampleData=sampleCtx.getImageData(0,0,sheet.width,sheet.height);
@@ -4314,7 +4375,7 @@ async function runPixelVideo(previewOnly){
     const palette=selectProcessingPalette(sampleData,retroDeterministic);
     sheet.width=sheet.height=1;
     const renderFrame=async time=>{
-      await seekPixelVideo(video,time,signal);
+      await runVisibleVideoTask(active=>seekPixelVideo(video,time,active),signal);
       ctx.drawImage(video,0,0,raw.width,raw.height);
       return processOneImage(raw,false,palette,true).dot;
     };
@@ -4344,11 +4405,16 @@ async function runPixelVideo(previewOnly){
     }
     out=document.createElement('canvas');
     out.width=dotSize?sw:raw.width;out.height=dotSize?sh:raw.height;
-    status.textContent=animation?`${format.toUpperCase()}アニメを書き出し中...`:`動画を書き出し中（約${duration.toFixed(1)}秒）。この画面を表示したままお待ちください。`;
+    status.textContent=animation?`${format.toUpperCase()}アニメを書き出し中...`:`動画を書き出し中（約${duration.toFixed(1)}秒）。タブを離れた場合は、戻ると録画工程のみ最初から再開します。`;
     const report=p=>{progress.value=0.7+p*0.3;};
     const blob=animation
       ?await encodePixelAnimation(out,frames,fps,duration,format,palette,signal,report)
-      :await recordPixelFrames(out,frames,fps,duration,mime,signal,report,audioContext,audioBuffer);
+      :await runVisibleVideoTask(async active=>{
+        await resumeVideoExportAudio(audioContext,active);
+        videoCheck(active);report(0);
+        status.textContent=`動画を書き出し中（約${duration.toFixed(1)}秒）。タブを離れると待機し、戻ると録画工程のみ再開します。`;
+        return recordPixelFrames(out,frames,fps,duration,mime,active,report,audioContext,audioBuffer);
+      },signal);
     videoCheck(signal);
     const result=document.getElementById('pixelVideoResult');
     result.pause();result.removeAttribute('src');result.load();
@@ -4371,14 +4437,15 @@ async function runPixelVideo(previewOnly){
     link.textContent=`${extension.toUpperCase()}を保存`;
     status.textContent=`変換完了：${out.width} × ${out.height}px / ${fps}fps / ${extension.toUpperCase()} / ${VIDEO_AUDIO_MODES[audioMode].label}。上部の保存ボタンから保存できます。`;
     section.scrollIntoView({behavior:'smooth',block:'center'});
-  }catch(e){status.textContent=e.name==='AbortError'?'変換を中止しました。画面を表示した状態で再実行できます。':e.message;}
+  }catch(e){status.textContent=e.name==='AbortError'?'変換をキャンセルしました。設定を保ったまま再実行できます。':e.message;}
   finally{
     if(frames!==pixelVideoCompareFrames) frames.forEach(frame=>{frame.width=frame.height=1;});
     raw.width=raw.height=1;
     if(out) out.width=out.height=1;
     audioBuffer=null;
     if(audioContext&&audioContext.state!=='closed') await audioContext.close().catch(()=>{});
-    document.removeEventListener('visibilitychange',onHidden);
+    pixelVideoAudioContext=null;
+    window.removeEventListener('beforeunload',onClose);
     pixelVideoJob=null;setVideoBusy(false);
   }
 }
