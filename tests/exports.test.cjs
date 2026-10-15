@@ -337,3 +337,148 @@ test('saved SFC count, dot settings and comparison direction restore; old settin
   run("applySettingsPayload({retroMode:'fc',retroCount:{fc:12,pce:16,pc98:16},customMode:false})");
   assert.equal(run('retroMode'),'fc');assert.equal(run('retroCountVal.sfc'),32);assert.equal(run('compareAxis'),'x');
 });
+
+class Player{
+  constructor(id){this.id=id;this.handlers=new Map();this.currentTime=0;this.duration=5;this.readyState=3;this.paused=true;this.seeking=false;this.ended=false;this.playbackRate=1;this.muted=false;this.volume=.8;this.src='blob:'+id;}
+  addEventListener(name,handler,options){
+    if(!this.handlers.has(name)) this.handlers.set(name,new Map());
+    this.handlers.get(name).set(handler,options?.once);
+  }
+  removeEventListener(name,handler){this.handlers.get(name)?.delete(handler);}
+  dispatch(name){for(const [handler,once] of [...(this.handlers.get(name)||[])]){if(once)this.removeEventListener(name,handler);handler();}}
+  pause(){this.paused=true;}
+  async play(){this.paused=false;this.ended=false;}
+  load(){}
+  removeAttribute(name){this[name]='';}
+  cloneNode(){const fresh=new Player(this.id);fresh.src=this.src;return fresh;}
+}
+
+test('a matching currentTime still waits for an in-flight seek and can be aborted',async()=>{
+  const {context}=app(),player=new Player('test');player.currentTime=2;player.seeking=true;
+  const controller=new AbortController();let done=false;
+  const task=context.seekPixelVideo(player,2,controller.signal).then(()=>{done=true;});
+  await Promise.resolve();assert.equal(done,false);
+  player.seeking=false;player.dispatch('seeked');await task;assert.equal(done,true);
+  player.seeking=true;
+  const cancelled=context.seekPixelVideo(player,2,controller.signal);
+  controller.abort();await assert.rejects(cancelled,{name:'AbortError'});
+  assert.equal(player.handlers.get('seeked').size,0);
+});
+
+function playbackApp(){
+  const fixture=app(),players=new Map(['pixelVideoSource','pixelVideoResult'].map(id=>[id,new Player(id)]));
+  const {context,run,get}=fixture;
+  context.document.getElementById=id=>players.get(id)||get(id);
+  context.requestAnimationFrame=()=>1;
+  context.ensureVideoCompareAudio=async()=>{};
+  context.seekPixelVideo=async(player,time)=>{player.currentTime=time;player.seeking=false;};
+  context.startVideoCompareVisuals=()=>run('videoCompareVisual={revision:0,frameIndex:-1}');
+  context.renderVideoComparePair=async()=>{};
+  run("currentMedia='video';pixelVideoView='compare';pixelVideoResultRange={start:10,duration:5,fps:12}");
+  players.get('pixelVideoSource').duration=30;
+  return {...fixture,players};
+}
+
+test('20 repeated replays start both clocks at the selected beginning with fresh playback rates',async()=>{
+  const {context,run,players,get}=playbackApp();
+  const source=players.get('pixelVideoSource'),output=players.get('pixelVideoResult');
+  for(let i=0;i<20;i++){
+    output.currentTime=5;output.ended=true;source.currentTime=15;
+    output.playbackRate=.75;source.playbackRate=1.05;
+    await context.toggleVideoComparePlayback();
+    assert.equal(output.currentTime,0);assert.equal(source.currentTime,10);
+    assert.equal(output.playbackRate,1);assert.equal(source.playbackRate,1);
+    assert.equal(output.paused,false);assert.equal(source.paused,false);
+    assert.equal(get('videoComparePlay').textContent,'一時停止');
+    run('pauseVideoComparison()');assert.equal(run('videoComparePlayback'),null);
+  }
+});
+
+test('an aborted old start cannot pause a newer playback or replace its status',async()=>{
+  const {context,run,players,get}=playbackApp();let rejectOld;
+  context.ensureVideoCompareAudio=()=>new Promise((_,reject)=>{rejectOld=reject;});
+  const old=context.toggleVideoComparePlayback();
+  run('pauseVideoComparison()');
+  context.ensureVideoCompareAudio=async()=>{};
+  await context.toggleVideoComparePlayback();
+  rejectOld(new Error('obsolete audio resume failure'));await old;
+  assert.equal(players.get('pixelVideoResult').paused,false);
+  assert.equal(get('videoComparePlay').textContent,'一時停止');
+  assert.match(get('videoCompareStatus').textContent,/同期再生中/);
+  run('pauseVideoComparison()');
+});
+
+test('comparison playback waits for both players and the visual before starting audio',async()=>{
+  const {context,players,run}=playbackApp();let finishSeek,finishFrame;
+  context.seekPixelVideo=async(player,time)=>{
+    player.currentTime=time;
+    if(player.id==='pixelVideoSource') await new Promise(resolve=>{finishSeek=resolve;});
+  };
+  context.renderVideoComparePair=()=>new Promise(resolve=>{finishFrame=resolve;});
+  const task=context.toggleVideoComparePlayback();
+  await new Promise(setImmediate);
+  assert.equal(players.get('pixelVideoResult').paused,true);assert.equal(typeof finishSeek,'function');
+  finishSeek();await new Promise(setImmediate);
+  assert.equal(players.get('pixelVideoResult').paused,true);assert.equal(typeof finishFrame,'function');
+  finishFrame();await task;
+  assert.equal(players.get('pixelVideoResult').paused,false);
+  run('pauseVideoComparison()');
+});
+
+test('replay seeks away from the ended frame before waiting for playable data',async()=>{
+  const {context,players,run}=playbackApp(),output=players.get('pixelVideoResult');
+  output.currentTime=5;output.ended=true;output.readyState=2;
+  const task=context.toggleVideoComparePlayback();await new Promise(setImmediate);
+  assert.equal(output.currentTime,0);assert.equal(output.paused,true);
+  assert.equal(output.handlers.get('canplay').size,1);
+  output.readyState=3;output.dispatch('canplay');await task;
+  assert.equal(output.paused,false);run('pauseVideoComparison()');
+});
+
+test('a buffering event stops both players and cancels the active comparison session',async()=>{
+  const {context,players,run,get}=playbackApp();
+  const source=players.get('pixelVideoSource'),output=players.get('pixelVideoResult');
+  context.bindVideoPlayerEvents(source);
+  await context.toggleVideoComparePlayback();
+  source.dispatch('waiting');
+  assert.equal(source.paused,true);assert.equal(output.paused,true);assert.equal(run('videoComparePlayback'),null);
+  assert.match(get('videoCompareStatus').textContent,/読み込み待ち/);
+});
+
+test('comparison presentation compensates reported latency without accumulating it',()=>{
+  const {context,run,players}=playbackApp(),output=players.get('pixelVideoResult');
+  output.currentTime=2;output.paused=false;
+  run('videoCompareAudio={context:{state:"running",baseLatency:.02,outputLatency:.08}}');
+  for(let i=0;i<20;i++) assert.equal(context.videoComparePresentationTime(),1.9);
+  output.paused=true;assert.equal(context.videoComparePresentationTime(),2);
+  output.paused=false;output.currentTime=.05;assert.equal(context.videoComparePresentationTime(),0);
+  run('videoCompareAudio={context:{state:"running"}}');assert.equal(context.videoComparePresentationTime(),.05);
+});
+
+test('leaving Web Audio creates native players, restores volume/time and releases the context once',async()=>{
+  const {context,run,players}=playbackApp();let closed=0,disconnected=0;
+  const old=players.get('pixelVideoResult');old.currentTime=2.5;old.volume=.35;old.muted=true;
+  for(const player of players.values()) player.replaceWith=fresh=>{players.set(player.id,fresh);};
+  context.graph={context:{currentTime:0,close:async()=>{closed++;}},original:{disconnect(){disconnected++;}},processed:{disconnect(){disconnected++;}},master:{gain:{cancelScheduledValues(){},setValueAtTime(){}},disconnect(){disconnected++;}}};
+  run('videoCompareAudio=graph;releaseVideoCompareAudio()');
+  const fresh=players.get('pixelVideoResult');
+  assert.notEqual(fresh,old);assert.equal(fresh.volume,.35);assert.equal(fresh.muted,true);assert.equal(fresh.playbackRate,1);
+  fresh.dispatch('loadedmetadata');assert.equal(fresh.currentTime,2.5);
+  assert.equal(run('videoCompareAudio'),null);assert.equal(closed,1);assert.equal(disconnected,3);
+  context.releaseVideoCompareAudio();assert.equal(closed,1);
+});
+
+test('a decoder frame completing after a rewind cannot overwrite the new comparison',async()=>{
+  const {context,run,get}=app();let finishSeek,commits=0;
+  get('pixelVideoResult').readyState=3;
+  Object.assign(get('pixelVideoSource'),{videoWidth:100,videoHeight:100});
+  get('videoCompareOriginal').getContext=get('videoCompareProcessed').getContext=()=>({drawImage(){commits++;}});
+  context.seekPixelVideo=()=>new Promise(resolve=>{finishSeek=resolve;});
+  context.state={controller:new AbortController(),revision:0,frameIndex:-1,busy:false,ready:Promise.resolve(),buffer:{getContext:()=>({drawImage(){}})}};
+  run("pixelVideoView='compare';pixelVideoResultRange={start:0,duration:5,fps:12};pixelVideoCompareFrames=Array(60).fill({});videoCompareVisual=state");
+  const pending=context.renderVideoComparePair(3,context.state);
+  await new Promise(setImmediate);run('invalidateVideoCompareFrame()');finishSeek();await pending;
+  assert.equal(commits,0);assert.equal(context.state.busy,false);
+  context.seekPixelVideo=async()=>{};
+  await context.renderVideoComparePair(0,context.state);assert.equal(commits,2);assert.equal(context.state.frameIndex,0);
+});
